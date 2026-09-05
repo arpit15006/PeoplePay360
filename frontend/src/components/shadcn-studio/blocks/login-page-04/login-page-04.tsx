@@ -1,95 +1,71 @@
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-
+import { useState } from 'react'
+import { ShieldCheck, ChevronDown } from 'lucide-react'
 import LoginForm from '@/components/shadcn-studio/blocks/login-page-04/login-form'
 
 const Login = () => {
+  const [language, setLanguage] = useState('English')
+
   return (
-    <div className='h-dvh lg:grid lg:grid-cols-2'>
-      {/* Dashboard Preview */}
-      <div className='bg-primary flex flex-col items-center justify-between gap-12 p-10 max-lg:hidden xl:p-16'>
-        <div className='text-primary-foreground'>
-          <h1 className='mb-6 text-3xl font-bold'>Welcome back! Please sign in to your Shadcn Studio account</h1>
-          <p className='text-xl'>
-            Thank you for registering! Please check your inbox and click the verification link to activate your account.
-          </p>
-        </div>
-
-        <div className='border-card bg-card flex max-h-118 items-center justify-center rounded-xl border-12'>
-          <img
-            src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/auth/image-1.png'
-            alt='dashboard'
-            className='size-full rounded-xl object-contain dark:hidden'
-          />
-          <img
-            src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/auth/image-1-dark.png'
-            alt='dashboard'
-            className='hidden size-full rounded-xl object-contain dark:inline-block'
-          />
-        </div>
-
-        <div className='flex gap-2 rounded-full bg-white/20 px-3 py-2'>
-          <a href='#' className='flex size-9 items-center justify-center rounded-full bg-white'>
-            <img
-              src='https://cdn.shadcnstudio.com/ss-assets/brand-logo/tailwind-logo.png'
-              alt='TailwindCSS Logo'
-              className='w-7'
-            />
-          </a>
-          <a href='#' className='flex size-9 items-center justify-center rounded-full bg-white'>
-            <img
-              src='https://cdn.shadcnstudio.com/ss-assets/brand-logo/nextjs-logo.png'
-              alt='Next.js Logo'
-              className='w-5.5'
-            />
-          </a>
-          <a href='#' className='flex size-9 items-center justify-center rounded-full bg-white'>
-            <img
-              src='https://cdn.shadcnstudio.com/ss-assets/brand-logo/shadcn-logo.png'
-              alt='Shadcn Logo'
-              className='w-5.5'
-            />
-          </a>
-        </div>
+    <div className="relative min-h-screen w-full bg-[#f8fafc] text-slate-900 flex flex-col justify-between overflow-x-hidden">
+      {/* Top right language selector */}
+      <div className="absolute top-6 right-8 z-20 flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 cursor-pointer select-none">
+        <span>{language}</span>
+        <ChevronDown className="size-4 text-slate-500" />
       </div>
 
-      {/* Login Form */}
-      <div className='flex h-full flex-col items-center justify-center py-10 sm:px-5'>
-        <div className='flex w-full max-w-lg flex-col gap-6 p-6'>
-          <div className='space-y-3 text-center'>
-            <h2 className='text-2xl font-semibold md:text-3xl lg:text-4xl'>Welcome Back 👋</h2>
-            <p className='text-muted-foreground'>Lets get started with your 30 days free trial</p>
-          </div>
+      {/* Main Layout: Left image side and Right form side with proportional spacing */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] xl:grid-cols-[1.2fr_0.8fr] items-center min-h-[calc(100vh-60px)] px-4 sm:px-8 lg:px-12 py-4">
+        {/* Left Side: Provided Login Image */}
+        <div className="relative hidden lg:flex items-center justify-center p-4 xl:p-8 overflow-hidden">
+          <img
+            src="/login-image.png"
+            alt="PeoplePay360 - People First. Simpler HR. Real Impact."
+            className="w-full h-auto max-h-[88vh] object-contain rounded-2xl"
+          />
+        </div>
 
-          {/* Quick Login Buttons */}
-          <div className='flex flex-col gap-3'>
-            <Button variant='outline' className='grow' asChild>
-              <a href='#'>Login with Google</a>
-            </Button>
-            <Button variant='outline' className='grow' asChild>
-              <a href='#'>Login with Facebook</a>
-            </Button>
-          </div>
+        {/* Right Side: Centered Login Card */}
+        <div className="flex flex-col items-center justify-center p-2 sm:p-4 lg:p-6 z-10">
+          <div className="w-full max-w-[480px] bg-white rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.05)] border border-slate-100 p-8 sm:p-10 flex flex-col gap-6">
+            {/* Header */}
+            <div className="text-center space-y-1.5">
+              <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-slate-900">
+                Welcome back
+              </h1>
+              <p className="text-sm text-slate-500 font-normal">
+                Sign in to your PeoplePay360 account
+              </p>
+            </div>
 
-          <div className='flex items-center gap-4'>
-            <Separator className='flex-1' />
-            <p>Or</p>
-            <Separator className='flex-1' />
-          </div>
-
-          <div className='space-y-4'>
             {/* Form */}
             <LoginForm />
 
-            <p className='text-muted-foreground text-center'>
-              Don&apos;t have an account yet?{' '}
-              <a href='#' className='text-foreground hover:underline'>
-                Sign Up
-              </a>
-            </p>
+            {/* Separator */}
+            <div className="h-px bg-slate-100 w-full mt-1" />
+
+            {/* Security Notice */}
+            <div className="flex items-center justify-center gap-2 text-center text-xs text-slate-500 font-normal">
+              <ShieldCheck className="size-4 text-slate-400 shrink-0" />
+              <span>Your data is secure and stays within your organization.</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Footer Links */}
+      <footer className="w-full py-5 px-8 flex items-center justify-end gap-6 text-xs text-slate-500 font-medium z-10">
+        <a href="#privacy" className="hover:text-slate-800 transition-colors">
+          Privacy Policy
+        </a>
+        <span className="text-slate-300">|</span>
+        <a href="#terms" className="hover:text-slate-800 transition-colors">
+          Terms of Service
+        </a>
+        <span className="text-slate-300">|</span>
+        <a href="#help" className="hover:text-slate-800 transition-colors">
+          Help
+        </a>
+      </footer>
     </div>
   )
 }
