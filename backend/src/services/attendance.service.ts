@@ -6,6 +6,41 @@ import { AttendanceStatus, Prisma } from '@prisma/client';
 import { calculateWorkedHours } from '../utils/dates';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 
+/**
+ * The unpaid meal break the employee's schedule defines for a given date.
+ *
+ * Worked hours exclude that break, so attendance agrees with the schedule the
+ * employee is actually on: 09:00-18:00 against a 60 minute break is 8 hours.
+ * An employee with no schedule, or a date the schedule does not cover, yields
+ * 0 so the raw clocked span stands rather than an invented deduction.
+ *
+ * getUTCDay is deliberate: attendance dates are stored at UTC midnight, so
+ * reading the local weekday would pick the wrong shift either side of it.
+ */
+async function breakMinutesFor(employeeId: string, date: Date): Promise<number> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      workingSchedule: {
+        select: {
+          dailyShifts: {
+            where: { dayOfWeek: date.getUTCDay() },
+            select: { breakMinutes: true, isWorkingDay: true },
+          },
+        },
+      },
+    },
+  });
+
+  const shift = employee?.workingSchedule?.dailyShifts[0];
+
+  // A shift flagged as non-working carries no meal break to deduct, but someone
+  // who clocked in anyway still worked, so the span is kept whole.
+  if (!shift || !shift.isWorkingDay) return 0;
+
+  return shift.breakMinutes;
+}
+
 export interface AttendanceFilters {
   employeeId?: string;
   startDate?: string;
@@ -123,7 +158,11 @@ export class AttendanceService {
     }
 
     const checkOut = input.checkOut || '18:00';
-    const workedHours = calculateWorkedHours(input.checkIn, checkOut);
+    const workedHours = calculateWorkedHours(
+      input.checkIn,
+      checkOut,
+      await breakMinutesFor(targetEmployeeId, dateMidnight)
+    );
 
     // Auto-detect status if not supplied: standard check-in is 09:00
     let status = input.status || AttendanceStatus.PRESENT;
@@ -189,7 +228,11 @@ export class AttendanceService {
 
     const checkIn = canCorrect ? input.checkIn || existing.checkIn : existing.checkIn;
     const checkOut = input.checkOut !== undefined ? (input.checkOut || existing.checkOut) : existing.checkOut;
-    const workedHours = calculateWorkedHours(checkIn, checkOut);
+    const workedHours = calculateWorkedHours(
+      checkIn,
+      checkOut,
+      await breakMinutesFor(existing.employeeId, existing.date)
+    );
 
     const updated = await prisma.attendance.update({
       where: { id },

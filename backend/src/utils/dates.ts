@@ -9,11 +9,28 @@ export function parseTimeToMinutes(time: string): number {
 /**
  * Calculate worked hours between checkIn and checkOut time strings.
  * Returns hours as a decimal (e.g. 8.95 for 8h 57m).
+ *
+ * The unpaid meal break is excluded, matching how working schedules derive
+ * their weekly hours: a 09:00-18:00 day with a 60 minute break is 8 hours
+ * worked, not 9. Counting the break would have made the same day read as 8
+ * hours on the schedule and 9 on the attendance record.
+ *
+ * Only the meal break belongs here. Short rest breaks are paid time and are
+ * not modelled separately, so `breakMinutes` should carry the unpaid meal
+ * break alone. Pass 0 (the default) when no schedule applies, so an employee
+ * without one keeps the raw clocked span rather than losing an arbitrary hour.
  */
-export function calculateWorkedHours(checkIn: string, checkOut: string): number {
+export function calculateWorkedHours(
+  checkIn: string,
+  checkOut: string,
+  breakMinutes = 0
+): number {
   const inMinutes = parseTimeToMinutes(checkIn);
   const outMinutes = parseTimeToMinutes(checkOut);
-  const diff = outMinutes - inMinutes;
+
+  // A short shift must never be driven negative by a full meal break.
+  const diff = Math.max(0, outMinutes - inMinutes - Math.max(0, breakMinutes));
+
   return Math.round((diff / 60) * 100) / 100; // round to 2 decimals
 }
 

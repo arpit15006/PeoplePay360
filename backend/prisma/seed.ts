@@ -453,7 +453,7 @@ async function main() {
       date: new Date('2026-09-01T00:00:00.000Z'),
       checkIn: '09:05',
       checkOut: '18:02',
-      workedHours: 8.95,
+      workedHours: 7.95, // 09:05-18:02 less the 60 min unpaid break
       status: AttendanceStatus.PRESENT,
       notes: 'On time, regular shift',
     },
@@ -466,7 +466,7 @@ async function main() {
       date: new Date('2026-09-01T00:00:00.000Z'),
       checkIn: '09:42',
       checkOut: '18:00',
-      workedHours: 8.30,
+      workedHours: 7.30, // 09:42-18:00 less the 60 min unpaid break
       status: AttendanceStatus.LATE,
       notes: 'Traffic delay on highway',
     },
