@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconSearch } from '@tabler/icons-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { IconPlus, IconSearch, IconX } from '@tabler/icons-react'
 
 import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
@@ -12,6 +12,7 @@ import ToggleGroupViewSwitcher, {
 import EmployeesDataTable from '@/components/employees/EmployeesDataTable'
 import EmployeesKanban from '@/components/employees/EmployeesKanban'
 import { useEmployees } from '@/hooks/useEmployees'
+import { useDepartmentList } from '@/hooks/useDepartmentList'
 import { useAuth } from '@/context/AuthContext'
 import type { EmployeeRow, EmployeeStatus } from '@/types/employee'
 
@@ -26,6 +27,8 @@ export function EmployeesDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { data, isLoading, isError, error } = useEmployees()
+  const { data: allDepartments = [] } = useDepartmentList()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [view, setView] = useState<EmployeesView>('kanban')
   const [search, setSearch] = useState('')
@@ -34,6 +37,22 @@ export function EmployeesDashboard() {
   const [sort, setSort] = useState('name')
 
   const employees = useMemo(() => data ?? [], [data])
+
+  // Arriving from a department's "View employees" carries the department id.
+  // The id is what travels, because it survives a rename, but the row filter
+  // matches on the department's name, so it is resolved once the list loads.
+  const departmentIdParam = searchParams.get('departmentId')
+  useEffect(() => {
+    if (!departmentIdParam) return
+    const match = allDepartments.find(d => d.id === departmentIdParam)
+    if (match) setDepartment(match.name)
+  }, [departmentIdParam, allDepartments])
+
+  const clearDepartmentFilter = () => {
+    setDepartment('all')
+    searchParams.delete('departmentId')
+    setSearchParams(searchParams, { replace: true })
+  }
 
   const departments = useMemo(
     () => Array.from(new Set(employees.map(e => e.department))).sort(),
@@ -112,7 +131,14 @@ export function EmployeesDashboard() {
           <select
             className={SELECT_CLASS}
             value={department}
-            onChange={e => setDepartment(e.target.value)}
+            onChange={e => {
+              setDepartment(e.target.value)
+              // Changing it by hand should not leave a stale id in the URL.
+              if (departmentIdParam) {
+                searchParams.delete('departmentId')
+                setSearchParams(searchParams, { replace: true })
+              }
+            }}
             aria-label='Filter by department'
           >
             <option value='all'>All Departments</option>
@@ -122,6 +148,14 @@ export function EmployeesDashboard() {
               </option>
             ))}
           </select>
+
+          {/* Say plainly that the list is narrowed, and offer the way out. */}
+          {department !== 'all' && (
+            <Button variant='outline' size='sm' onClick={clearDepartmentFilter}>
+              <IconX />
+              Showing {department} only
+            </Button>
+          )}
 
           <select
             className={SELECT_CLASS}

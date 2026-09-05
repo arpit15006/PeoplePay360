@@ -1,9 +1,28 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -12,24 +31,96 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { IconUsers } from '@tabler/icons-react'
+import { IconPencil, IconPlus, IconTrash, IconUsers } from '@tabler/icons-react'
 
-import { useDepartmentList } from '@/hooks/useDepartmentList'
+import { useDepartmentList, useSaveDepartment, useDeleteDepartment } from '@/hooks/useDepartmentList'
+import { useEmployees } from '@/hooks/useEmployees'
+import { useAuth } from '@/context/AuthContext'
+import type { Department } from '@/types/department'
+import type { Role } from '@/types/user'
+
+/** Departments are HR master data, so the roles with CRUD over employees manage them. */
+const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+/** Deleting is destructive and reserved for Admin, matching the API. */
+const CAN_DELETE: Role[] = ['ADMIN']
+
+const NONE = 'none'
+const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Something went wrong')
 
 /** Mockup "Menus under Employees" — Departments. */
 export function DepartmentsList() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { data: departments = [], isLoading, isError, error } = useDepartmentList()
+  const { data: employees = [] } = useEmployees()
+
+  const saveDepartment = useSaveDepartment()
+  const deleteDepartment = useDeleteDepartment()
+
+  const canManage = !!user && CAN_MANAGE.includes(user.role)
+  const canDelete = !!user && CAN_DELETE.includes(user.role)
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Department | null>(null)
+  const [draft, setDraft] = useState<{ name: string; managerId: string | null }>({
+    name: '',
+    managerId: null
+  })
+  const [confirmDelete, setConfirmDelete] = useState<Department | null>(null)
 
   const totalHeadcount = departments.reduce((sum, d) => sum + (d._count?.employees ?? 0), 0)
 
+  const openCreate = () => {
+    setEditing(null)
+    setDraft({ name: '', managerId: null })
+    setDialogOpen(true)
+  }
+
+  const openEdit = (department: Department) => {
+    setEditing(department)
+    setDraft({ name: department.name, managerId: department.managerId })
+    setDialogOpen(true)
+  }
+
+  const submit = async () => {
+    try {
+      await saveDepartment.mutateAsync({ id: editing?.id, body: draft })
+      toast.success(editing ? `${draft.name} updated` : `${draft.name} created`)
+      setDialogOpen(false)
+    } catch (err) {
+      toast.error(errorText(err))
+    }
+  }
+
+  const remove = async () => {
+    if (!confirmDelete) return
+    try {
+      await deleteDepartment.mutateAsync(confirmDelete.id)
+      toast.success(`${confirmDelete.name} deleted`)
+      setConfirmDelete(null)
+    } catch (err) {
+      // The API refuses while employees or contracts still point at it, and
+      // says how many, so the message is worth showing verbatim.
+      toast.error(errorText(err))
+    }
+  }
+
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-foreground text-2xl font-semibold tracking-tight'>Departments</h1>
-        <p className='text-muted-foreground text-sm'>
-          Organisational units, their managers and headcount.
-        </p>
+      <div className='flex flex-wrap items-start justify-between gap-4'>
+        <div>
+          <h1 className='text-foreground text-2xl font-semibold tracking-tight'>Departments</h1>
+          <p className='text-muted-foreground text-sm'>
+            Organisational units, their managers and headcount.
+          </p>
+        </div>
+
+        {canManage && (
+          <Button onClick={openCreate}>
+            <IconPlus />
+            New Department
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -51,7 +142,7 @@ export function DepartmentsList() {
                   <TableHead>Department</TableHead>
                   <TableHead>Manager</TableHead>
                   <TableHead className='text-right'>Headcount</TableHead>
-                  <TableHead className='w-40' />
+                  <TableHead className='w-64' />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -77,17 +168,37 @@ export function DepartmentsList() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className='flex justify-end'>
+                          <div className='flex justify-end gap-1'>
                             <Button
                               variant='ghost'
                               size='sm'
-                              // The employees list filters by department, so this
-                              // is the same drill-down the smart buttons use.
+                              // Carries the department through so the employee
+                              // list opens already filtered, not just opens.
                               onClick={() => navigate(`/employees?departmentId=${d.id}`)}
                             >
                               <IconUsers />
                               View employees
                             </Button>
+                            {canManage && (
+                              <Button
+                                variant='ghost'
+                                size='icon-sm'
+                                aria-label={`Edit ${d.name}`}
+                                onClick={() => openEdit(d)}
+                              >
+                                <IconPencil />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant='ghost'
+                                size='icon-sm'
+                                aria-label={`Delete ${d.name}`}
+                                onClick={() => setConfirmDelete(d)}
+                              >
+                                <IconTrash />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -104,6 +215,83 @@ export function DepartmentsList() {
           </CardContent>
         </Card>
       )}
+
+      {/* Create / edit */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Department' : 'New Department'}</DialogTitle>
+            <DialogDescription>
+              Departments group employees and label the salary cost breakdown on the dashboard.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='space-y-4'>
+            <div className='space-y-1.5'>
+              <Label htmlFor='dept-name'>Name</Label>
+              <Input
+                id='dept-name'
+                placeholder='e.g. Customer Success'
+                value={draft.name}
+                onChange={e => setDraft({ ...draft, name: e.target.value })}
+              />
+            </div>
+
+            <div className='space-y-1.5'>
+              <Label htmlFor='dept-manager'>Manager</Label>
+              <Select
+                value={draft.managerId ?? NONE}
+                onValueChange={v => setDraft({ ...draft, managerId: v === NONE ? null : v })}
+              >
+                <SelectTrigger id='dept-manager' className='w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No manager assigned</SelectItem>
+                  {employees.map(e => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name} · {e.employeeCode}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={saveDepartment.isPending || draft.name.trim().length < 2}
+            >
+              {saveDepartment.isPending ? 'Saving…' : editing ? 'Save' : 'Create Department'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!confirmDelete} onOpenChange={open => !open && setConfirmDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete department</DialogTitle>
+            <DialogDescription>
+              {confirmDelete?.name} will be removed. A department that still holds employees or
+              contracts cannot be deleted — move them first.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setConfirmDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant='destructive' onClick={remove} disabled={deleteDepartment.isPending}>
+              {deleteDepartment.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
