@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import {
   IconAlertTriangle,
+  IconChevronRight,
   IconCalendarStats,
   IconCash,
   IconInfoCircle,
@@ -21,9 +23,10 @@ import {
   IconWallet
 } from '@tabler/icons-react'
 
+import { useAuth } from '@/context/AuthContext'
 import { useDashboard } from '@/hooks/useDashboard'
 import { useDepartments } from '@/hooks/useEmployee'
-import { money, type DashboardFilters } from '@/types/dashboard'
+import { ALERT_DESTINATIONS, money, type DashboardFilters } from '@/types/dashboard'
 import { monthOptions } from '@/types/payrun'
 
 import SalaryCostChart from './SalaryCostChart'
@@ -70,6 +73,7 @@ const Kpi = ({
 
 /** PRD Screen 17 — Payroll Dashboard. */
 export function PayrollDashboard() {
+  const { user } = useAuth()
   const [month, setMonth] = useState('September')
   const [year, setYear] = useState('2026')
   const [departmentId, setDepartmentId] = useState('all')
@@ -173,15 +177,46 @@ export function PayrollDashboard() {
           {/* Actionable alerts — PRD Screen 17 */}
           {data.alerts.length > 0 && (
             <div className='space-y-2'>
-              {data.alerts.map((alert, index) => (
-                <Alert
-                  key={`${alert.type}-${index}`}
-                  className={alert.type === 'warning' ? 'border-amber-500/40 *:[svg]:row-span-1' : '*:[svg]:row-span-1'}
-                >
-                  {alert.type === 'warning' ? <IconAlertTriangle /> : <IconInfoCircle />}
-                  <AlertTitle>{alert.message}</AlertTitle>
-                </Alert>
-              ))}
+              {data.alerts.map((alert, index) => {
+                const target = alert.code ? ALERT_DESTINATIONS[alert.code] : undefined
+                // Only a link for someone the destination's route would admit.
+                const destination = target && user && target.allow.includes(user.role) ? target : undefined
+
+                const body = (
+                  <Alert
+                    className={`${alert.type === 'warning' ? 'border-amber-500/40 ' : ''}*:[svg]:row-span-1${
+                      destination ? ' hover:bg-muted/50 transition-colors' : ''
+                    }`}
+                  >
+                    {alert.type === 'warning' ? <IconAlertTriangle /> : <IconInfoCircle />}
+                    <AlertTitle className='flex items-center justify-between gap-3'>
+                      <span>{alert.message}</span>
+                      {destination && (
+                        <span className='text-muted-foreground flex shrink-0 items-center gap-1 text-sm font-normal'>
+                          {destination.label}
+                          <IconChevronRight className='size-4' />
+                        </span>
+                      )}
+                    </AlertTitle>
+                  </Alert>
+                )
+
+                // An alert nobody can act on stays plain text; the rest become
+                // real links, so they can be opened in a new tab and read
+                // correctly by a screen reader.
+                return destination ? (
+                  <Link
+                    key={`${alert.type}-${index}`}
+                    to={destination.to}
+                    aria-label={`${alert.message}. ${destination.label}.`}
+                    className='focus-visible:ring-ring/50 block rounded-lg outline-none focus-visible:ring-3'
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div key={`${alert.type}-${index}`}>{body}</div>
+                )
+              })}
             </div>
           )}
 
@@ -232,9 +267,12 @@ export function PayrollDashboard() {
             />
           </div>
 
-          <div className='grid items-start gap-6 lg:grid-cols-2'>
-            <SalaryTrendChart points={data.salaryTrend} />
-            <AttendanceOverview attendance={data.attendanceHealth} />
+          {/* No items-start here, unlike the row above: these two are meant to
+              read as a matched pair, so the shorter one stretches to the
+              taller rather than leaving a ragged edge. */}
+          <div className='grid gap-6 lg:grid-cols-2'>
+            <SalaryTrendChart points={data.salaryTrend} className='h-full' />
+            <AttendanceOverview attendance={data.attendanceHealth} className='h-full' />
           </div>
         </>
       )}

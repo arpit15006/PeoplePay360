@@ -1,5 +1,5 @@
 import prisma from '../config/db';
-import { AttendanceStatus, EmployeeType, PayrunStatus, TimeOffStatus } from '@prisma/client';
+import { AttendanceStatus, EmployeeType, PayrunStatus, TimeOffStatus , Role } from '@prisma/client';
 
 export interface DashboardFilters {
   period?: string; // "September 2026"
@@ -37,7 +37,7 @@ function periodRange(period: string): { gte: Date; lte: Date } | null {
 }
 
 export class DashboardService {
-  static async getMetrics(filters: DashboardFilters) {
+  static async getMetrics(filters: DashboardFilters, role?: Role) {
     const period = filters.period || 'September 2026';
     const range = periodRange(period);
 
@@ -205,9 +205,26 @@ export class DashboardService {
       .map(({ sortKey: _sortKey, ...rest }) => rest);
 
     // 6. Actionable Alerts
-    const alerts = [];
-    if (draftPayruns > 0) {
+    //
+    // Each carries a stable `code`. The dashboard turns an alert into a link to
+    // the screen that resolves it, and matching on a code rather than on the
+    // message text means rewording the sentence cannot break the navigation.
+    const alerts: { code: string; type: string; message: string }[] = [];
+
+    // An alert is a prompt to go and do something, so it is only worth raising
+    // for someone who can. The HR Manager reads this dashboard but has no
+    // Payroll module, so a draft-payrun prompt would send them at a screen the
+    // route refuses. Dropped here rather than hidden in the browser: the count
+    // is payroll operations, and there is no reason to ship it at all.
+    const canActOnPayruns =
+      role === undefined ||
+      role === Role.HR_PAYROLL_USER ||
+      role === Role.HR_PAYROLL_MANAGER ||
+      role === Role.ADMIN;
+
+    if (draftPayruns > 0 && canActOnPayruns) {
       alerts.push({
+        code: 'DRAFT_PAYRUNS',
         type: 'warning',
         message: `${draftPayruns} payrun(s) in Draft state awaiting computation`,
       });
@@ -215,6 +232,7 @@ export class DashboardService {
 
     if (pendingLeaves > 0) {
       alerts.push({
+        code: 'PENDING_TIMEOFF',
         type: 'info',
         message: `${pendingLeaves} time-off request(s) awaiting manager approval`,
       });

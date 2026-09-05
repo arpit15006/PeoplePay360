@@ -336,6 +336,12 @@ export class EmailService {
 
     const startedAt = Date.now();
 
+    // Emitted as each send settles. The sends run in parallel, so this counts
+    // completions rather than reporting a position in the list — which is what
+    // the screen needs to draw an honest bar.
+    let settled = 0;
+    const total = payrun.payslips.length;
+
     // Sends run in parallel over the pooled connections rather than one after
     // another, so a payrun costs roughly (employees / MAX_PARALLEL_SENDS)
     // round trips instead of one per employee.
@@ -366,8 +372,26 @@ export class EmailService {
             payslip.lines
           );
 
+          settled += 1;
+          emitEvent(SocketEvents.PAYSLIP_SEND_PROGRESS, {
+            payrunId,
+            done: settled,
+            total,
+            employee: payslip.employee.name,
+            ok: true,
+          });
+
           return { ...base, success: true, previewUrl: sendResult.previewUrl || null };
         } catch (err) {
+          settled += 1;
+          emitEvent(SocketEvents.PAYSLIP_SEND_PROGRESS, {
+            payrunId,
+            done: settled,
+            total,
+            employee: payslip.employee.name,
+            ok: false,
+          });
+
           return { ...base, success: false, error: (err as Error).message };
         }
       }

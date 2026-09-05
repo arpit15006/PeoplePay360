@@ -128,7 +128,13 @@ export function TimeOffRequests() {
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  // Arriving from a dashboard alert carries the status it counted, so the list
+  // opens on exactly those rows instead of on everything. The facet select
+  // shows the value, so it is visible and can be cleared like any other filter.
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
+    const status = searchParams.get('status')
+    return status ? [{ id: 'status', value: status }] : []
+  })
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
   const [bulkDecision, setBulkDecision] = useState<'approve' | 'refuse' | null>(null)
   const [bulkRunning, setBulkRunning] = useState(false)

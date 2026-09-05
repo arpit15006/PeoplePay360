@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { IconAlertTriangle, IconClockHour4, IconPencil } from '@tabler/icons-react'
 
+import { cn } from '@/lib/utils'
 import type { AttendanceHealth } from '@/types/dashboard'
 
 /**
@@ -53,7 +54,7 @@ export function AttendanceOverview({
   const { totalLogs, coverage, overtimeHours, missingCheckOuts, manualEdits } = attendance
 
   return (
-    <Card className={className}>
+    <Card className={cn('flex flex-col', className)}>
       <CardHeader>
         <CardTitle className='font-semibold'>Attendance Overview</CardTitle>
         <CardDescription>
@@ -61,7 +62,9 @@ export function AttendanceOverview({
         </CardDescription>
       </CardHeader>
 
-      <CardContent className='space-y-6'>
+      {/* flex-1 with the sections spread out, so the taller neighbour does not
+          leave this one with a block of empty space under its last row. */}
+      <CardContent className='flex flex-1 flex-col justify-between gap-6'>
         <div>
           <div className='mb-2 flex items-baseline justify-between'>
             <span className='text-sm font-medium'>Attendance coverage</span>

@@ -1,3 +1,5 @@
+import type { Role } from '@/types/user';
+
 /** PRD Screen 17 — Payroll Dashboard. Mirrors the payload of GET /api/dashboard. */
 
 export interface DashboardKpis {
@@ -49,10 +51,41 @@ export interface TimeOffOverviewRow {
   totalDuration: number;
 }
 
+export type DashboardAlertCode = 'DRAFT_PAYRUNS' | 'PENDING_TIMEOFF';
+
 export interface DashboardAlert {
+  /** Absent on responses from an older server; the alert then simply is not a link. */
+  code?: DashboardAlertCode;
   type: 'warning' | 'info';
   message: string;
 }
+
+/**
+ * Where each alert sends you, with the target screen pre-filtered to the very
+ * records the alert counted. Keyed by code rather than by message text so
+ * rewording a sentence cannot silently break the link.
+ *
+ * `allow` mirrors the route guard on the destination. The dashboard is open to
+ * HR Manager, who cannot reach Payruns — without this the draft-payrun alert
+ * would be a link that bounces them straight back off the route. Those alerts
+ * stay as plain text: the count is still worth seeing, it is simply not
+ * theirs to act on.
+ */
+export const ALERT_DESTINATIONS: Record<
+  DashboardAlertCode,
+  { to: string; label: string; allow: Role[] }
+> = {
+  DRAFT_PAYRUNS: {
+    to: '/payroll/payruns?status=DRAFT',
+    label: 'View draft payruns',
+    allow: ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  },
+  PENDING_TIMEOFF: {
+    to: '/timeoff/requests?status=TO_APPROVE',
+    label: 'Review pending requests',
+    allow: ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  },
+};
 
 export interface DashboardMetrics {
   period: string;

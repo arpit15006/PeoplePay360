@@ -176,7 +176,7 @@ const EmployeesDataTable = ({ data, onRowClick }: Props) => {
   const sensors = useSensors(useSensor(MouseSensor, {}), useSensor(TouchSensor, {}), useSensor(KeyboardSensor, {}))
 
   return (
-    <Card className='w-full py-0'>
+    <Card className='w-full gap-0 py-0'>
       {/* A toolbar, not a filter panel: the page already carries its own header
           and search above, so this stays one compact row. */}
       <div className='flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-4 py-2.5'>
