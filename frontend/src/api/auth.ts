@@ -7,7 +7,8 @@ export interface LoginPayload {
 }
 
 export interface LoginResponse {
-  message: string;
+  message?: string;
+  token?: string;
   user: AuthUser;
 }
 
