@@ -181,10 +181,16 @@ export class AttendanceService {
       throw new ConflictError('Attendance already recorded for this date. Use update to modify check-out.');
     }
 
-    const checkOut = input.checkOut || '18:00';
+    // Checking in leaves the check-out empty until the employee actually
+    // leaves. Defaulting it to 18:00 invented hours for someone still at work,
+    // blocked them from ever checking out, and made the dashboard's missing
+    // check-out count permanently zero.
+    const checkOut = input.checkOut ?? '';
     const shift = await shiftContextFor(targetEmployeeId, dateMidnight);
-    const workedHours = calculateWorkedHours(input.checkIn, checkOut, shift.breakMinutes);
-    const overtimeHours = overtimeFrom(workedHours, shift.scheduledHours);
+    const workedHours = checkOut
+      ? calculateWorkedHours(input.checkIn, checkOut, shift.breakMinutes)
+      : 0;
+    const overtimeHours = checkOut ? overtimeFrom(workedHours, shift.scheduledHours) : 0;
 
     // Auto-detect status if not supplied: standard check-in is 09:00
     let status = input.status || AttendanceStatus.PRESENT;
@@ -252,8 +258,10 @@ export class AttendanceService {
     const checkIn = canCorrect ? input.checkIn || existing.checkIn : existing.checkIn;
     const checkOut = input.checkOut !== undefined ? (input.checkOut || existing.checkOut) : existing.checkOut;
     const shift = await shiftContextFor(existing.employeeId, existing.date);
-    const workedHours = calculateWorkedHours(checkIn, checkOut, shift.breakMinutes);
-    const overtimeHours = overtimeFrom(workedHours, shift.scheduledHours);
+    const workedHours = checkOut
+      ? calculateWorkedHours(checkIn, checkOut, shift.breakMinutes)
+      : 0;
+    const overtimeHours = checkOut ? overtimeFrom(workedHours, shift.scheduledHours) : 0;
 
     // An employee closing out their own open record is normal clocking. Anything
     // an authorised user changes is a correction, which the dashboard reports.
