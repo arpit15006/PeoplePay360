@@ -90,10 +90,12 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
+    // The spec's navigation calls this group Reports; the screen inside it is
+    // the Payroll Dashboard the same spec describes under B9.
     icon: <IconLayoutDashboard />,
-    label: 'Payroll Dashboard',
-    href: '/dashboard',
-    allow: NOT_EMPLOYEE
+    label: 'Reports',
+    allow: NOT_EMPLOYEE,
+    items: [{ label: 'Payroll Dashboard', href: '/dashboard', allow: NOT_EMPLOYEE }]
   },
   {
     icon: <IconShieldLock />,

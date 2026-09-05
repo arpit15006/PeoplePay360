@@ -104,6 +104,20 @@ async function main() {
             status: 'Active',
           },
           {
+            // A subtotal line, not an earning. The engine adds only BASIC and
+            // ALLOWANCE rules to gross, so a GROSS rule reports the running
+            // total without contributing to it, which is what the category is
+            // for: making the gross visible as its own component.
+            name: 'Gross Salary',
+            code: 'GROSS',
+            category: RuleCategory.GROSS,
+            sequence: 38,
+            calculationType: RuleCalcType.FORMULA,
+            value: 'GROSS',
+            condition: 'True',
+            status: 'Active',
+          },
+          {
             name: 'Provident Fund (PF)',
             code: 'PF',
             category: RuleCategory.DEDUCTION,
@@ -151,6 +165,9 @@ async function main() {
       employeeType: EmployeeType.FULL_TIME,
       scheduleId: standardSchedule.id,
       status: EmployeeStatus.ACTIVE,
+      bankName: 'HDFC Bank',
+      bankAccountNumber: '50100234567801',
+      ifscCode: 'HDFC0001234',
     },
   });
 
@@ -165,6 +182,9 @@ async function main() {
       employeeType: EmployeeType.FULL_TIME,
       scheduleId: standardSchedule.id,
       status: EmployeeStatus.ACTIVE,
+      bankName: 'ICICI Bank',
+      bankAccountNumber: '002401555123',
+      ifscCode: 'ICIC0000024',
       managerId: aarav.id,
     },
   });
@@ -180,6 +200,9 @@ async function main() {
       employeeType: EmployeeType.FULL_TIME,
       scheduleId: standardSchedule.id,
       status: EmployeeStatus.ACTIVE,
+      bankName: 'State Bank of India',
+      bankAccountNumber: '20345678901',
+      ifscCode: 'SBIN0011513',
     },
   });
 
@@ -194,6 +217,9 @@ async function main() {
       employeeType: EmployeeType.FULL_TIME,
       scheduleId: standardSchedule.id,
       status: EmployeeStatus.ACTIVE,
+      bankName: 'Axis Bank',
+      bankAccountNumber: '918010056789012',
+      ifscCode: 'UTIB0001122',
       managerId: aarav.id,
     },
   });
@@ -209,6 +235,9 @@ async function main() {
       employeeType: EmployeeType.FULL_TIME,
       scheduleId: standardSchedule.id,
       status: EmployeeStatus.ACTIVE,
+      bankName: 'Kotak Mahindra Bank',
+      bankAccountNumber: '7845123690',
+      ifscCode: 'KKBK0000958',
     },
   });
 

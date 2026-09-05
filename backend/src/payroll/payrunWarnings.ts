@@ -13,10 +13,8 @@ export interface PayrunWarning {
 /**
  * Collects the issues a payroll officer should see before finalising a payrun.
  *
- * The spec asks for warnings such as duplicate payslips and incomplete employee
- * data to be surfaced prior to finalisation. Note that the Employee model has no
- * bank detail columns, so the literal "missing bank details" check from the spec
- * cannot be performed; the closest available signals are checked instead.
+ * The spec asks for warnings such as missing bank details and duplicate payslips
+ * to be surfaced prior to finalisation.
  */
 export async function collectPayrunWarnings(payrunId: string): Promise<PayrunWarning[]> {
   const payrun = await prisma.payrun.findUnique({
@@ -24,7 +22,17 @@ export async function collectPayrunWarnings(payrunId: string): Promise<PayrunWar
     include: {
       payslips: {
         include: {
-          employee: { select: { id: true, name: true, email: true, status: true } },
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              status: true,
+              bankName: true,
+              bankAccountNumber: true,
+              ifscCode: true,
+            },
+          },
           lines: true,
         },
       },
@@ -34,6 +42,26 @@ export async function collectPayrunWarnings(payrunId: string): Promise<PayrunWar
   if (!payrun) return [];
 
   const warnings: PayrunWarning[] = [];
+
+  // Missing bank details. Payroll cannot pay someone it has no account for, so
+  // this blocks finalisation rather than merely noting it.
+  for (const payslip of payrun.payslips) {
+    const e = payslip.employee;
+    const missing = [
+      !e.bankName && 'bank name',
+      !e.bankAccountNumber && 'account number',
+      !e.ifscCode && 'IFSC code',
+    ].filter(Boolean) as string[];
+
+    if (missing.length > 0) {
+      warnings.push({
+        code: 'MISSING_BANK_DETAILS',
+        severity: 'error',
+        employeeId: e.id,
+        message: `${e.name} is missing ${missing.join(', ')} and cannot be paid.`,
+      });
+    }
+  }
 
   // Duplicate payslips: the same employee already has a payslip for this period
   // in a different payrun. The unique constraint only covers one payrun, so this

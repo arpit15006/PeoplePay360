@@ -32,6 +32,10 @@ export interface EmployeeDetail {
   manager: { id: string; name: string } | null;
   workingSchedule: { id: string; name: string; weeklyHours: number } | null;
   subordinates?: { id: string; name: string; employeeCode: string; jobPosition: string }[];
+  /** Payment details. The payrun blocks finalisation while any are missing. */
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  ifscCode: string | null;
 }
 
 /** Counts behind the four smart buttons. */
@@ -53,6 +57,9 @@ export type EmployeeUpdate = Partial<{
   departmentId: string;
   managerId: string | null;
   scheduleId: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  ifscCode: string | null;
 }>;
 
 export const EMPLOYEE_TYPE_LABELS: Record<EmployeeType, string> = {

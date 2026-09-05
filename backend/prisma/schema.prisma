@@ -140,6 +140,13 @@ model Employee {
   scheduleId      String?
   workingSchedule WorkingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   status          EmployeeStatus @default(ACTIVE)
+  // Payroll needs somewhere to pay to. Optional because an employee record is
+  // created before onboarding completes, which is exactly why the payrun warns
+  // when these are still blank at finalisation.
+  bankName      String?
+  bankAccountNumber String?
+  ifscCode      String?
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

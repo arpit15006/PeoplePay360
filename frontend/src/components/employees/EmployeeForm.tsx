@@ -79,6 +79,9 @@ export function EmployeeForm() {
         email: employee.email,
         phone: employee.phone,
         jobPosition: employee.jobPosition,
+        bankName: employee.bankName,
+        bankAccountNumber: employee.bankAccountNumber,
+        ifscCode: employee.ifscCode,
         employeeType: employee.employeeType,
         status: employee.status,
         departmentId: employee.departmentId ?? undefined,
@@ -280,6 +283,34 @@ export function EmployeeForm() {
                 />
               </LabelledField>
 
+              {/* Payment details. A payrun refuses to finalise while any of the
+                  three are blank, so they are edited alongside the work details. */}
+              <LabelledField label='Bank Name'>
+                <Input
+                  value={draft.bankName ?? ''}
+                  placeholder='HDFC Bank'
+                  onChange={e => setDraft({ ...draft, bankName: e.target.value || null })}
+                />
+              </LabelledField>
+
+              <LabelledField label='Account Number'>
+                <Input
+                  value={draft.bankAccountNumber ?? ''}
+                  placeholder='50100234567801'
+                  onChange={e => setDraft({ ...draft, bankAccountNumber: e.target.value || null })}
+                />
+              </LabelledField>
+
+              <LabelledField label='IFSC Code'>
+                <Input
+                  value={draft.ifscCode ?? ''}
+                  placeholder='HDFC0001234'
+                  onChange={e =>
+                    setDraft({ ...draft, ifscCode: e.target.value.toUpperCase() || null })
+                  }
+                />
+              </LabelledField>
+
               <LabelledField label='Employee Type'>
                 <Select
                   value={draft.employeeType}
@@ -354,6 +385,12 @@ export function EmployeeForm() {
                 }
               />
               <ReadField label='Status' value={EMPLOYEE_STATUS_LABELS[employee.status]} />
+
+              {/* Payment details. Shown here too, not only in edit mode, because
+                  a payrun refuses to finalise while any of them is blank. */}
+              <ReadField label='Bank Name' value={employee.bankName ?? ''} />
+              <ReadField label='Account Number' value={employee.bankAccountNumber ?? ''} />
+              <ReadField label='IFSC Code' value={employee.ifscCode ?? ''} />
             </>
           )}
         </CardContent>

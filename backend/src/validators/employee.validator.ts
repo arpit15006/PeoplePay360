@@ -12,6 +12,17 @@ export const createEmployeeSchema = z.object({
   managerId: z.string().uuid('Invalid manager ID').optional().nullable(),
   status: z.nativeEnum(EmployeeStatus).default(EmployeeStatus.ACTIVE),
   employeeCode: z.string().optional(), // Auto-generated if not provided
+  // Payment details. Optional at creation; the payrun warns when they are still
+  // missing at finalisation. Empty strings are normalised to null so a blank
+  // form field does not read as "provided".
+  bankName: z.string().trim().min(1).optional().nullable(),
+  bankAccountNumber: z.string().trim().min(4, 'Account number looks too short').optional().nullable(),
+  ifscCode: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'IFSC must look like HDFC0001234')
+    .optional()
+    .nullable(),
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();
