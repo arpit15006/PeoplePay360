@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 import { usePayslips } from '@/hooks/usePayruns'
-import { PAYSLIP_STATUS_LABELS, money } from '@/types/payrun'
+import { PAYSLIP_STATUS_CLASSES, PAYSLIP_STATUS_LABELS, money } from '@/types/payrun'
 
 /** PRD Screen 14 — Payslips list. */
 export function PayslipList() {
@@ -75,7 +75,7 @@ export function PayslipList() {
                       <TableCell className='text-right tabular-nums'>{money(payslip.grossSalary)}</TableCell>
                       <TableCell className='text-right font-semibold tabular-nums'>{money(payslip.netSalary)}</TableCell>
                       <TableCell>
-                        <Badge className='border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400'>
+                        <Badge className={PAYSLIP_STATUS_CLASSES[payslip.status]}>
                           {PAYSLIP_STATUS_LABELS[payslip.status]}
                         </Badge>
                       </TableCell>

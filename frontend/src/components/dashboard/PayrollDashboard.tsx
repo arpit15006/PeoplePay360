@@ -51,14 +51,19 @@ const Kpi = ({
   value: string
   hint?: string
 }) => (
-  <Card>
-    <CardContent className='flex items-start justify-between gap-3'>
+  <Card size='sm' className='py-3'>
+    <CardContent className='flex items-start justify-between gap-2 px-3 sm:px-3.5'>
       <div className='min-w-0 space-y-1'>
         <p className='text-muted-foreground text-xs font-medium'>{label}</p>
-        <p className='truncate text-2xl font-semibold tabular-nums'>{value}</p>
+        <p
+          className='truncate text-lg font-semibold tabular-nums tracking-tight sm:text-xl xl:text-[1.18rem] 2xl:text-2xl'
+          title={value}
+        >
+          {value}
+        </p>
         {hint && <p className='text-muted-foreground text-xs'>{hint}</p>}
       </div>
-      <div className='bg-primary/10 text-primary rounded-lg p-2'>{icon}</div>
+      <div className='bg-primary/10 text-primary shrink-0 rounded-lg p-1.5'>{icon}</div>
     </CardContent>
   </Card>
 )
@@ -181,7 +186,7 @@ export function PayrollDashboard() {
           )}
 
           {/* KPI cards */}
-          <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'>
+          <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 2xl:gap-4'>
             <Kpi
               icon={<IconWallet className='size-5' />}
               label='Net Salary Paid'

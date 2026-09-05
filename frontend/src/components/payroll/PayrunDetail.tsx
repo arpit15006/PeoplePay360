@@ -40,6 +40,7 @@ import {
   PAYRUN_FLOW,
   PAYRUN_STATUS_CLASSES,
   PAYRUN_STATUS_LABELS,
+  PAYSLIP_STATUS_CLASSES,
   PAYSLIP_STATUS_LABELS,
   money
 } from '@/types/payrun'
@@ -253,7 +254,7 @@ export function PayrunDetail() {
                         {money(payslip.netSalary)}
                       </TableCell>
                       <TableCell>
-                        <Badge className='border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400'>
+                        <Badge className={PAYSLIP_STATUS_CLASSES[payslip.status]}>
                           {PAYSLIP_STATUS_LABELS[payslip.status]}
                         </Badge>
                       </TableCell>
