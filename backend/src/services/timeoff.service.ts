@@ -11,6 +11,27 @@ import { AuthUser } from '../middleware/auth';
 import { TimeOffStatus, Prisma } from '@prisma/client';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 
+
+/**
+ * Days a request actually covers, counted inclusively from its own dates.
+ *
+ * The duration used to be taken from the request body and never checked, so a
+ * caller could book 1 December to 31 December and declare it as one day: the
+ * balance check compared against the declared figure, and approval deducted the
+ * same, so a month of leave consumed a single day of allocation.
+ *
+ * Deriving it here makes the dates the single source of truth. Whole calendar
+ * days are counted rather than working days, which matches the seeded data and
+ * how the allocations were sized; excluding weekends and holidays would need a
+ * holiday calendar the schema does not carry.
+ */
+export function durationInDays(startDate: Date, endDate: Date): number {
+  const start = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
+  const end = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
+  const days = Math.floor((end - start) / 86_400_000) + 1;
+  return Math.max(1, days);
+}
+
 export class TimeOffService {
   // ─── 1. TIME OFF TYPES ──────────────────────────────────────
 
@@ -181,7 +202,21 @@ export class TimeOffService {
 
     const startDate = new Date(input.startDate);
     const endDate = new Date(input.endDate);
-    const year = startDate.getFullYear();
+
+    if (endDate < startDate) {
+      throw new ValidationError('The end date cannot be before the start date');
+    }
+
+    const year = startDate.getUTCFullYear();
+
+    // Derived, never taken from the caller. A request that spans a month must
+    // consume a month of allocation regardless of what the body claims.
+    const duration =
+      type.unit === 'Hours' ? input.duration : durationInDays(startDate, endDate);
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new ValidationError('Duration must be greater than zero');
+    }
 
     // If allocation is required, verify available balance
     if (type.allocationRequired) {
@@ -199,9 +234,9 @@ export class TimeOffService {
         throw new ValidationError(`No allocation found for '${type.name}' in year ${year}`);
       }
 
-      if (allocation.remaining < input.duration) {
+      if (allocation.remaining < duration) {
         throw new ValidationError(
-          `Insufficient leave balance. Requested: ${input.duration} days, Available: ${allocation.remaining} days`
+          `Insufficient leave balance. Requested: ${duration} ${type.unit.toLowerCase()}, Available: ${allocation.remaining}`
         );
       }
     }
@@ -212,7 +247,7 @@ export class TimeOffService {
         timeOffTypeId: input.timeOffTypeId,
         startDate,
         endDate,
-        duration: input.duration,
+        duration,
         reason: input.reason,
         status: TimeOffStatus.TO_APPROVE,
       },

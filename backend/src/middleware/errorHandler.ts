@@ -9,6 +9,17 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   // Zod validation errors
+  // body-parser raises this for a malformed JSON body. Without a case here it
+  // falls through to the catch-all and reports a 500, telling the caller the
+  // server broke when in fact their request did.
+  if (err instanceof SyntaxError && 'body' in (err as any)) {
+    res.status(400).json({
+      success: false,
+      error: 'Malformed JSON in request body',
+    });
+    return;
+  }
+
   if (err instanceof ZodError) {
     res.status(400).json({
       success: false,
