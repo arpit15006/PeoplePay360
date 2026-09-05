@@ -42,6 +42,7 @@ import {
 } from '@tabler/icons-react'
 
 import { useAuth } from '@/context/AuthContext'
+import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { ROLE_LABELS, type Role } from '@/types/user'
 import { initialsOf } from '@/types/employee'
 
@@ -187,6 +188,9 @@ const SidebarGroupedMenuItems = ({
 }
 
 export function AppLayout({ children }: { children: ReactNode }) {
+  // Live updates: another user's approval or payrun action refreshes this view.
+  useRealtimeSync()
+
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 

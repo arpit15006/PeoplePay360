@@ -1,6 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
-const URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+// Matches the vite proxy target. The 5000 fallback pointed at a port macOS
+// AirPlay occupies, so a missing env var connected to the wrong service.
+const URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 
 export const socket: Socket = io(URL, {
   autoConnect: true,
@@ -15,3 +17,5 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
   console.log('[WebSocket] Disconnected from server');
 });
+
+export default socket;
