@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Role } from '@prisma/client';
 
+import { importUsers } from '../controllers/bulkImport.controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import {
@@ -21,6 +22,9 @@ router.use(authorize(Role.ADMIN));
 router.get('/', listUsers);
 router.get('/:id', getUser);
 router.post('/', createUser);
+
+// POST /api/users/bulk-import — Create many login accounts from a CSV (Admin)
+router.post('/bulk-import', importUsers);
 router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
 

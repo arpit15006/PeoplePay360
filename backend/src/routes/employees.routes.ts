@@ -7,6 +7,7 @@ import {
   updateEmployee,
   deleteEmployee,
 } from '../controllers/employees.controller';
+import { importEmployees } from '../controllers/bulkImport.controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import { Role } from '@prisma/client';
@@ -31,6 +32,10 @@ router.post(
   authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   createEmployee
 );
+
+// POST /api/employees/bulk-import — Create many employees from a CSV
+// Declared before /:id so "bulk-import" is not read as an employee id.
+router.post('/bulk-import', authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN), importEmployees);
 
 // PUT /api/employees/:id — Update employee (HR Manager, HR Payroll Manager, Admin)
 router.put(

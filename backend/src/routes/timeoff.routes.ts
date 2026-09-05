@@ -12,6 +12,7 @@ import {
   approveRequest,
   refuseRequest,
 } from '../controllers/timeoff.controller';
+import { importAllocations } from '../controllers/bulkImport.controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import { Role } from '@prisma/client';
@@ -29,6 +30,8 @@ router.delete('/types/:id', authorize(Role.ADMIN), deleteType);
 // ─── 2. Allocations ─────────────────────────────────────────────
 router.get('/allocations', listAllocations);
 router.post('/allocations', authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN), createAllocation);
+// POST /api/timeoff/allocations/bulk-import — Grant many balances from a CSV
+router.post('/allocations/bulk-import', authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN), importAllocations);
 router.put('/allocations/:id', authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN), updateAllocation);
 
 // ─── 3. Requests & Approvals ────────────────────────────────────

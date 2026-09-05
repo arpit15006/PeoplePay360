@@ -6,6 +6,7 @@ import {
   updateAttendance,
   deleteAttendance,
 } from '../controllers/attendance.controller';
+import { importAttendance } from '../controllers/bulkImport.controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import { Role } from '@prisma/client';
@@ -22,6 +23,9 @@ router.get('/:id', getAttendance);
 
 // POST /api/attendance — Check-in or log attendance
 router.post('/', createAttendance);
+
+// POST /api/attendance/bulk-import — Import a period of attendance from a CSV
+router.post('/bulk-import', authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN), importAttendance);
 
 // PUT /api/attendance/:id — Update check-out or correct attendance (HR+)
 router.put('/:id', updateAttendance);

@@ -16,15 +16,45 @@ import {
 import { restrictToHorizontalAxis } from '@dnd-kit/modifiers'
 import { arrayMove, horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Cell, ColumnDef, Header, SortingState } from '@tanstack/react-table'
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table'
+import type {
+  Cell,
+  ColumnDef,
+  ColumnFiltersState,
+  Header,
+  PaginationState,
+  SortingState
+} from '@tanstack/react-table'
+import {
+  flexRender,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable
+} from '@tanstack/react-table'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { IconGripVertical, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 
+import {
+  DataTableFacetFilter,
+  DataTablePagination
+} from '@/components/shadcn-studio/data-table/data-table-parts'
 import EmployeeStatusBadge from '@/components/employees/EmployeeStatusBadge'
 import { initialsOf, type EmployeeRow, type EmployeeStatus } from '@/types/employee'
+
+/**
+ * The three faceted filters below deliberately do not repeat the ones in the
+ * Employees toolbar. Search, department and status live up there because they
+ * also drive the Kanban view; job position, manager and working schedule are
+ * list-only refinements and belong to the table.
+ */
+const NO_MANAGER = 'No manager'
+const NO_SCHEDULE = 'No schedule'
 
 /**
  * PRD Screen 2 list view — the shadcn-studio data-table-08 variant with its
@@ -62,12 +92,15 @@ const columns: ColumnDef<EmployeeRow>[] = [
     id: 'jobPosition',
     header: 'Job Position',
     accessorKey: 'jobPosition',
+    filterFn: 'equalsString',
     cell: ({ row }) => <div>{row.getValue('jobPosition')}</div>
   },
   {
     id: 'manager',
     header: 'Manager',
-    accessorKey: 'manager',
+    // A null manager still needs a value the facet filter can offer.
+    accessorFn: row => row.manager ?? NO_MANAGER,
+    filterFn: 'equalsString',
     cell: ({ row }) => (
       <div className={row.original.manager ? '' : 'text-muted-foreground'}>
         {row.original.manager ?? '—'}
@@ -77,7 +110,8 @@ const columns: ColumnDef<EmployeeRow>[] = [
   {
     id: 'workingSchedule',
     header: 'Working Schedule',
-    accessorKey: 'workingSchedule',
+    accessorFn: row => row.workingSchedule ?? NO_SCHEDULE,
+    filterFn: 'equalsString',
     cell: ({ row }) => (
       <div className={row.original.workingSchedule ? '' : 'text-muted-foreground'}>
         {row.original.workingSchedule ?? '—'}
@@ -99,6 +133,8 @@ type Props = {
 
 const EmployeesDataTable = ({ data, onRowClick }: Props) => {
   const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(column => column.id as string))
 
   const table = useReactTable({
@@ -107,9 +143,17 @@ const EmployeesDataTable = ({ data, onRowClick }: Props) => {
     columnResizeMode: 'onChange',
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onPaginationChange: setPagination,
     state: {
       sorting,
+      columnFilters,
+      pagination,
       columnOrder
     },
     onColumnOrderChange: setColumnOrder,
@@ -132,8 +176,16 @@ const EmployeesDataTable = ({ data, onRowClick }: Props) => {
   const sensors = useSensors(useSensor(MouseSensor, {}), useSensor(TouchSensor, {}), useSensor(KeyboardSensor, {}))
 
   return (
-    <div className='w-full'>
-      <div className='overflow-x-auto rounded-md border'>
+    <Card className='w-full py-0'>
+      {/* A toolbar, not a filter panel: the page already carries its own header
+          and search above, so this stays one compact row. */}
+      <div className='flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-4 py-2.5'>
+        <DataTableFacetFilter compact column={table.getColumn('jobPosition')} label='Job Position' />
+        <DataTableFacetFilter compact column={table.getColumn('manager')} label='Manager' />
+        <DataTableFacetFilter compact column={table.getColumn('workingSchedule')} label='Schedule' />
+      </div>
+
+      <div className='overflow-x-auto border-b'>
         <DndContext
           id={useId()}
           collisionDetection={closestCenter}
@@ -180,7 +232,9 @@ const EmployeesDataTable = ({ data, onRowClick }: Props) => {
           </Table>
         </DndContext>
       </div>
-    </div>
+
+      <DataTablePagination table={table} noun='employees' />
+    </Card>
   )
 }
 

@@ -15,6 +15,8 @@ interface ItemEnvelope {
 export interface NamedRecord {
   id: string;
   name: string;
+  /** Only salary structures carry one; the pickers hide retired ones. */
+  status?: string;
 }
 
 export const contractsApi = {

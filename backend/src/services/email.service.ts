@@ -6,10 +6,26 @@ import { PayrunStatus, PayslipStatus } from '@prisma/client';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 import { generatePayslipPdf } from './payslipPdf.service';
 
-let transporter: nodemailer.Transporter | null = null;
+// The promise is cached, not just the resolved transporter: parallel sends all
+// ask for it at once, and each caller must get the same pooled transport.
+let transporterPromise: Promise<nodemailer.Transporter> | null = null;
 
-async function getTransporter(): Promise<nodemailer.Transporter> {
-  if (transporter) return transporter;
+function getTransporter(): Promise<nodemailer.Transporter> {
+  if (!transporterPromise) transporterPromise = createTransporter();
+  return transporterPromise;
+}
+
+async function createTransporter(): Promise<nodemailer.Transporter> {
+  let transporter: nodemailer.Transporter;
+
+  // Pooling is what makes a bulk send fast: without it nodemailer opens a fresh
+  // TCP + TLS + AUTH handshake for every single message, which against Gmail
+  // costs about a second per payslip before any mail is even transferred.
+  const pool = {
+    pool: true,
+    maxConnections: MAX_PARALLEL_SENDS,
+    maxMessages: 100,
+  } as const;
 
   if (env.SMTP_USER && env.SMTP_PASS) {
     transporter = nodemailer.createTransport({
@@ -20,6 +36,7 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
         user: env.SMTP_USER,
         pass: env.SMTP_PASS,
       },
+      ...pool,
     });
   } else {
     // Generate ethereal test account if no credentials supplied
@@ -32,11 +49,38 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
         user: testAccount.user,
         pass: testAccount.pass,
       },
+      ...pool,
     });
     console.log(`[Email Service] Using Ethereal Test Account: ${testAccount.user}`);
   }
 
   return transporter;
+}
+
+/**
+ * How many payslips are built and sent at once. Each worker holds one pooled
+ * SMTP connection, so this is also the pool size.
+ */
+const MAX_PARALLEL_SENDS = 5;
+
+/** Runs `fn` over `items` with at most `limit` in flight, preserving order. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 /* ------------------------------------------------------------------ */
@@ -290,64 +334,77 @@ export class EmailService {
       throw new ValidationError(`Cannot send payslips for a payrun with status '${payrun.status}'. Payrun must be VALIDATED or PAID.`);
     }
 
-    const results = [];
+    const startedAt = Date.now();
 
-    for (const payslip of payrun.payslips) {
-      try {
-        const sendResult = await this.sendPayslipEmail(
-          payslip.employee.email,
-          payslip.employee.name,
-          payslip.period,
-          payslip.netSalary,
-          payslip.grossSalary,
-          payslip.totalDeductions,
-          payslip.workedDays,
-          payslip.employee.employeeCode,
-          payslip.employee.jobPosition ?? '-',
-          payslip.employee.department?.name ?? '-',
-          payslip.salaryStructure?.name ?? '-',
-          payslip.status,
-          payslip.lines
-        );
-
-        // Update sent status
-        await prisma.payslip.update({
-          where: { id: payslip.id },
-          data: {
-            status: PayslipStatus.SENT,
-            sentAt: new Date(),
-          },
-        });
-
-        results.push({
+    // Sends run in parallel over the pooled connections rather than one after
+    // another, so a payrun costs roughly (employees / MAX_PARALLEL_SENDS)
+    // round trips instead of one per employee.
+    const results = await mapWithConcurrency(
+      payrun.payslips,
+      MAX_PARALLEL_SENDS,
+      async (payslip) => {
+        const base = {
+          id: payslip.id,
           employee: payslip.employee.name,
           email: payslip.employee.email,
-          success: true,
-          previewUrl: sendResult.previewUrl || null,
-        });
-      } catch (err) {
-        results.push({
-          employee: payslip.employee.name,
-          email: payslip.employee.email,
-          success: false,
-          error: (err as Error).message,
-        });
+        };
+
+        try {
+          const sendResult = await this.sendPayslipEmail(
+            payslip.employee.email,
+            payslip.employee.name,
+            payslip.period,
+            payslip.netSalary,
+            payslip.grossSalary,
+            payslip.totalDeductions,
+            payslip.workedDays,
+            payslip.employee.employeeCode,
+            payslip.employee.jobPosition ?? '-',
+            payslip.employee.department?.name ?? '-',
+            payslip.salaryStructure?.name ?? '-',
+            payslip.status,
+            payslip.lines
+          );
+
+          return { ...base, success: true, previewUrl: sendResult.previewUrl || null };
+        } catch (err) {
+          return { ...base, success: false, error: (err as Error).message };
+        }
       }
+    );
+
+    const sentIds = results.filter((r) => r.success).map((r) => r.id);
+
+    // One round trip for every payslip that went out, instead of one per send.
+    if (sentIds.length > 0) {
+      await prisma.payslip.updateMany({
+        where: { id: { in: sentIds } },
+        data: {
+          status: PayslipStatus.SENT,
+          sentAt: new Date(),
+        },
+      });
+
+      // Only a payrun that actually reached someone counts as SENT.
+      await prisma.payrun.update({
+        where: { id: payrunId },
+        data: { status: PayrunStatus.SENT },
+      });
+
+      emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id: payrunId, status: PayrunStatus.SENT });
     }
 
-    // Update payrun status to SENT
-    await prisma.payrun.update({
-      where: { id: payrunId },
-      data: { status: PayrunStatus.SENT },
-    });
-
-    emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id: payrunId, status: PayrunStatus.SENT });
+    console.log(
+      `[Email Service] Payrun ${payrunId}: ${sentIds.length}/${results.length} payslips sent in ${
+        Date.now() - startedAt
+      }ms`
+    );
 
     return {
       payrunId,
       totalSent: results.filter((r) => r.success).length,
       totalFailed: results.filter((r) => !r.success).length,
-      details: results,
+      details: results.map(({ id, ...detail }) => detail),
     };
   }
 }

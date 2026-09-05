@@ -24,7 +24,7 @@ interface ShiftContext {
   scheduledHours: number;
 }
 
-async function shiftContextFor(employeeId: string, date: Date): Promise<ShiftContext> {
+export async function shiftContextFor(employeeId: string, date: Date): Promise<ShiftContext> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
@@ -61,7 +61,7 @@ async function shiftContextFor(employeeId: string, date: Date): Promise<ShiftCon
 }
 
 /** Hours worked beyond what the schedule expected, never negative. */
-function overtimeFrom(workedHours: number, scheduledHours: number): number {
+export function overtimeFrom(workedHours: number, scheduledHours: number): number {
   return Math.max(0, Math.round((workedHours - scheduledHours) * 100) / 100);
 }
 

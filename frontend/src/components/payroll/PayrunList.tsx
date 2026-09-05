@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { IconPlus } from '@tabler/icons-react'
 
+import { DataTablePaginationBase } from '@/components/shadcn-studio/data-table/data-table-parts'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import { usePayruns } from '@/hooks/usePayruns'
 import { PAYRUN_STATUS_CLASSES, PAYRUN_STATUS_LABELS, money } from '@/types/payrun'
 
@@ -14,6 +16,11 @@ import { PAYRUN_STATUS_CLASSES, PAYRUN_STATUS_LABELS, money } from '@/types/payr
 export function PayrunList() {
   const navigate = useNavigate()
   const { data: payruns = [], isLoading, isError, error } = usePayruns()
+
+  // Payruns accrue a row a month rather than one an employee, but the list is
+  // append-only and never pruned, so it pages like the rest.
+  const { page, pageIndex, pageSize, pageCount, total, onPageChange, onPageSizeChange } =
+    useClientPagination(payruns)
 
   return (
     <div className='space-y-6'>
@@ -59,7 +66,7 @@ export function PayrunList() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  payruns.map(payrun => (
+                  page.map(payrun => (
                     <TableRow
                       key={payrun.id}
                       className='cursor-pointer'
@@ -84,6 +91,16 @@ export function PayrunList() {
               </TableBody>
             </Table>
           </CardContent>
+
+          <DataTablePaginationBase
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            pageCount={pageCount}
+            total={total}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            noun='payruns'
+          />
         </Card>
       )}
     </div>

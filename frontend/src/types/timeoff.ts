@@ -34,7 +34,14 @@ export interface TimeOffRequest {
   reason: string;
   status: TimeOffStatus;
   approvedById: string | null;
-  employee: { id: string; name: string; employeeCode: string } | null;
+  /** The list endpoint already returns the department and job position. */
+  employee: {
+    id: string;
+    name: string;
+    employeeCode: string;
+    jobPosition?: string;
+    department?: { name: string } | null;
+  } | null;
   timeOffType: { id: string; name: string; unit: string } | null;
   approvedBy?: { id: string; name: string } | null;
 }

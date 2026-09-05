@@ -6,6 +6,7 @@ import {
   updateContract,
   deleteContract,
 } from '../controllers/contracts.controller';
+import { importContracts } from '../controllers/bulkImport.controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import { Role } from '@prisma/client';
@@ -21,6 +22,9 @@ router.get('/', listContracts);
 router.get('/:id', getContract);
 
 // POST /api/contracts — Create a new contract (HR Manager, HR Payroll Manager, Admin)
+// POST /api/contracts/bulk-import — Create many contracts from a CSV
+router.post('/bulk-import', authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN), importContracts);
+
 router.post(
   '/',
   authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),

@@ -1,13 +1,29 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import type {
+  ColumnDef,
+  PaginationState,
+  RowSelectionState,
+  SortingState
+} from '@tanstack/react-table'
+import {
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable
+} from '@tanstack/react-table'
+
 import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DataTablePagination } from '@/components/shadcn-studio/data-table/data-table-parts'
 import {
   Dialog,
   DialogContent,
@@ -31,8 +47,13 @@ import {
   IconCheck,
   IconCash,
   IconMail,
-  IconInfoCircle
+  IconInfoCircle,
+  IconChevronDown,
+  IconChevronUp,
+  IconX
 } from '@tabler/icons-react'
+
+import { initialsOf } from '@/types/employee'
 
 import { usePayrun, usePayrunAction, usePayrunWarnings } from '@/hooks/usePayruns'
 import { useAuth } from '@/context/AuthContext'
@@ -42,7 +63,8 @@ import {
   PAYRUN_STATUS_LABELS,
   PAYSLIP_STATUS_CLASSES,
   PAYSLIP_STATUS_LABELS,
-  money
+  money,
+  type Payslip
 } from '@/types/payrun'
 import type { Role } from '@/types/user'
 
@@ -63,10 +85,134 @@ export function PayrunDetail() {
   const action = usePayrunAction()
 
   const [sending, setSending] = useState(false)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [recipients, setRecipients] = useState<string[]>([])
 
   const canProcess = !!user && CAN_PROCESS.includes(user.role)
   const canSend = !!user && CAN_SEND.includes(user.role)
+
+  // These hooks sit above the loading and error returns below: React requires
+  // the same hooks on every render, and the payrun is undefined on the first
+  // pass. The table is therefore built over an empty list until it arrives.
+  const columns = useMemo<ColumnDef<Payslip>[]>(
+    () => [
+      {
+        id: 'select',
+        enableSorting: false,
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() && 'indeterminate')
+            }
+            onCheckedChange={value => table.toggleAllRowsSelected(!!value)}
+            aria-label='Select every payslip'
+          />
+        ),
+        cell: ({ row }) => (
+          // The row opens the payslip, so the tick must keep its click.
+          <div onClick={e => e.stopPropagation()}>
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={value => row.toggleSelected(!!value)}
+              aria-label={`Select payslip for ${row.original.employee?.name ?? 'employee'}`}
+            />
+          </div>
+        ),
+        size: 50
+      },
+      {
+        id: 'employee',
+        header: 'Employee',
+        accessorFn: row => row.employee?.name ?? '',
+        cell: ({ row }) => (
+          <div className='flex items-center gap-3'>
+            <Avatar className='size-9'>
+              <AvatarFallback className='text-xs'>
+                {initialsOf(row.original.employee?.name ?? '?')}
+              </AvatarFallback>
+            </Avatar>
+            <div className='flex min-w-0 flex-col'>
+              <span className='truncate font-medium'>{row.original.employee?.name ?? '—'}</span>
+              <span className='text-muted-foreground truncate text-xs'>
+                {row.original.employee?.employeeCode ?? ''}
+              </span>
+            </div>
+          </div>
+        ),
+        size: 280
+      },
+      {
+        id: 'workedDays',
+        header: 'Worked Days',
+        accessorKey: 'workedDays',
+        cell: ({ row }) => <div className='text-right tabular-nums'>{row.original.workedDays}</div>
+      },
+      {
+        id: 'gross',
+        header: 'Gross',
+        accessorKey: 'grossSalary',
+        cell: ({ row }) => (
+          <div className='text-right tabular-nums'>{money(row.original.grossSalary)}</div>
+        )
+      },
+      {
+        id: 'deductions',
+        header: 'Deductions',
+        accessorKey: 'totalDeductions',
+        cell: ({ row }) => (
+          <div className='text-right tabular-nums'>{money(row.original.totalDeductions)}</div>
+        )
+      },
+      {
+        id: 'net',
+        header: 'Net',
+        accessorKey: 'netSalary',
+        cell: ({ row }) => (
+          <div className='text-right font-semibold tabular-nums'>{money(row.original.netSalary)}</div>
+        )
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessorKey: 'status',
+        cell: ({ row }) => (
+          <Badge className={PAYSLIP_STATUS_CLASSES[row.original.status]}>
+            {PAYSLIP_STATUS_LABELS[row.original.status]}
+          </Badge>
+        )
+      }
+    ],
+    []
+  )
+
+  const table = useReactTable({
+    data: payrun?.payslips ?? [],
+    columns,
+    // Keyed by payslip id because the selection is handed straight to the send
+    // dialog as its recipient list.
+    getRowId: row => row.id,
+    state: { sorting, rowSelection, pagination },
+    onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    // A payrun holds one payslip per employee — ~1,000 rows at full headcount.
+    getPaginationRowModel: getPaginationRowModel(),
+    enableSortingRemoval: false
+  })
+
+  const selectedRows = table.getSelectedRowModel().rows
+  const selectedTotals = selectedRows.reduce(
+    (acc, row) => ({
+      gross: acc.gross + row.original.grossSalary,
+      deductions: acc.deductions + row.original.totalDeductions,
+      net: acc.net + row.original.netSalary
+    }),
+    { gross: 0, deductions: 0, net: 0 }
+  )
 
   if (isLoading) {
     return (
@@ -105,8 +251,12 @@ export function PayrunDetail() {
     }
   }
 
+  // Ticking rows in the table is the same act as choosing who to email, so the
+  // send dialog opens on that selection rather than starting from everyone
+  // again. With nothing ticked it still means "all of them".
   const openSend = () => {
-    setRecipients(payrun.payslips.map(p => p.id))
+    const ticked = Object.keys(rowSelection).filter(id => rowSelection[id])
+    setRecipients(ticked.length > 0 ? ticked : payrun.payslips.map(p => p.id))
     setSending(true)
   }
 
@@ -209,59 +359,95 @@ export function PayrunDetail() {
       )}
 
       {/* Payslips summary */}
-      <Card className='p-0'>
-        <CardContent className='overflow-x-auto p-0'>
+      <Card className='w-full py-0'>
+        {selectedRows.length > 0 && (
+          <div className='bg-primary/5 flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3'>
+            <p className='text-sm'>
+              <span className='font-semibold'>{selectedRows.length}</span> of{' '}
+              {payrun.payslips.length} selected ·{' '}
+              <span className='text-muted-foreground'>Gross</span>{' '}
+              <span className='font-medium tabular-nums'>{money(selectedTotals.gross)}</span> ·{' '}
+              <span className='text-muted-foreground'>Deductions</span>{' '}
+              <span className='font-medium tabular-nums'>{money(selectedTotals.deductions)}</span> ·{' '}
+              <span className='text-muted-foreground'>Net</span>{' '}
+              <span className='font-semibold tabular-nums'>{money(selectedTotals.net)}</span>
+            </p>
+            <Button variant='ghost' size='sm' onClick={() => setRowSelection({})}>
+              <IconX />
+              Clear selection
+            </Button>
+          </div>
+        )}
+
+        <div className='overflow-x-auto'>
           <Table>
             <TableHeader>
-              <TableRow className='bg-muted/50'>
-                <TableHead>Employee</TableHead>
-                <TableHead className='text-right'>Worked Days</TableHead>
-                <TableHead className='text-right'>Gross</TableHead>
-                <TableHead className='text-right'>Deductions</TableHead>
-                <TableHead className='text-right'>Net</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id} className='bg-muted/50 h-14'>
+                  {headerGroup.headers.map(header => {
+                    const numeric = ['workedDays', 'gross', 'deductions', 'net'].includes(
+                      header.column.id
+                    )
+                    return (
+                      <TableHead
+                        key={header.id}
+                        style={{ width: header.getSize() ? `${header.getSize()}px` : undefined }}
+                        className='text-muted-foreground first:pl-4 last:px-4'
+                      >
+                        {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                          <div
+                            className={`flex h-full cursor-pointer items-center gap-2 select-none ${numeric ? 'justify-end' : 'justify-between'}`}
+                            onClick={header.column.getToggleSortingHandler()}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                header.column.getToggleSortingHandler()?.(e)
+                              }
+                            }}
+                            tabIndex={0}
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {{
+                              asc: <IconChevronUp className='size-4 shrink-0 opacity-60' aria-hidden='true' />,
+                              desc: <IconChevronDown className='size-4 shrink-0 opacity-60' aria-hidden='true' />
+                            }[header.column.getIsSorted() as string] ?? null}
+                          </div>
+                        ) : (
+                          flexRender(header.column.columnDef.header, header.getContext())
+                        )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
               {payrun.payslips.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className='h-24 text-center'>
+                  <TableCell colSpan={columns.length} className='h-24 text-center'>
                     No payslips yet. Run Compute to generate them.
                   </TableCell>
                 </TableRow>
               ) : (
                 <>
-                  {payrun.payslips.map(payslip => (
+                  {table.getRowModel().rows.map(row => (
                     <TableRow
-                      key={payslip.id}
-                      className='cursor-pointer'
-                      onClick={() => navigate(`/payroll/payslips/${payslip.id}`)}
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      className='h-14 cursor-pointer'
+                      onClick={() => navigate(`/payroll/payslips/${row.original.id}`)}
                     >
-                      <TableCell className='font-medium'>
-                        <div>{payslip.employee?.name ?? '—'}</div>
-                        <div className='text-muted-foreground text-xs'>
-                          {payslip.employee?.employeeCode}
-                        </div>
-                      </TableCell>
-                      <TableCell className='text-right tabular-nums'>{payslip.workedDays}</TableCell>
-                      <TableCell className='text-right tabular-nums'>
-                        {money(payslip.grossSalary)}
-                      </TableCell>
-                      <TableCell className='text-right tabular-nums'>
-                        {money(payslip.totalDeductions)}
-                      </TableCell>
-                      <TableCell className='text-right font-semibold tabular-nums'>
-                        {money(payslip.netSalary)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={PAYSLIP_STATUS_CLASSES[payslip.status]}>
-                          {PAYSLIP_STATUS_LABELS[payslip.status]}
-                        </Badge>
-                      </TableCell>
+                      {row.getVisibleCells().map(cell => (
+                        <TableCell key={cell.id} className='first:w-12.5 first:pl-4 last:px-4'>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
-                  <TableRow className='bg-muted/30 font-semibold'>
-                    <TableCell colSpan={2}>Totals</TableCell>
+                  <TableRow className='bg-muted/30 font-semibold hover:bg-muted/30'>
+                    <TableCell colSpan={3} className='pl-4'>
+                      Totals
+                    </TableCell>
                     <TableCell className='text-right tabular-nums'>{money(totals.gross)}</TableCell>
                     <TableCell className='text-right tabular-nums'>
                       {money(totals.deductions)}
@@ -273,7 +459,9 @@ export function PayrunDetail() {
               )}
             </TableBody>
           </Table>
-        </CardContent>
+        </div>
+
+        <DataTablePagination table={table} noun='payslips' />
       </Card>
 
       {/* Screen 16 — bulk email distribution */}

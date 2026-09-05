@@ -3,6 +3,7 @@ import { CreateContractInput, UpdateContractInput } from '../validators/contract
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
 import { Prisma, ContractStatus } from '@prisma/client';
+import { assertStructureIsActive } from './salaryStructure.service';
 
 export interface ContractFilters {
   employeeId?: string;
@@ -154,6 +155,10 @@ export class ContractService {
       await assertNoOverlappingContract(input.employeeId, startDate, endDate);
     }
 
+    if (input.salaryStructureId) {
+      await assertStructureIsActive(input.salaryStructureId, 'be assigned to a contract');
+    }
+
     const contract = await prisma.contract.create({
       data: {
         ...input,
@@ -192,6 +197,12 @@ export class ContractService {
 
     if (nextStatus === ContractStatus.ACTIVE) {
       await assertNoOverlappingContract(existing.employeeId, nextStart, nextEnd, id);
+    }
+
+    // Only when the structure is being changed: a contract already pointing at a
+    // retired structure can still be edited for its other fields.
+    if (input.salaryStructureId && input.salaryStructureId !== existing.salaryStructureId) {
+      await assertStructureIsActive(input.salaryStructureId, 'be assigned to a contract');
     }
 
     const updated = await prisma.contract.update({

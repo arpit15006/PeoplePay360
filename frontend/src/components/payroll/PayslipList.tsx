@@ -1,12 +1,43 @@
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  PaginationState,
+  RowSelectionState,
+  SortingState
+} from '@tanstack/react-table'
+import {
+  flexRender,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable
+} from '@tanstack/react-table'
+
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { IconChevronDown, IconChevronUp, IconEye, IconX } from '@tabler/icons-react'
 
+import {
+  DataTableFacetFilter,
+  DataTablePagination
+} from '@/components/shadcn-studio/data-table/data-table-parts'
 import { usePayslips } from '@/hooks/usePayruns'
-import { PAYSLIP_STATUS_CLASSES, PAYSLIP_STATUS_LABELS, money } from '@/types/payrun'
+import { initialsOf } from '@/types/employee'
+import { PAYSLIP_STATUS_CLASSES, PAYSLIP_STATUS_LABELS, money, type Payslip, type PayslipStatus } from '@/types/payrun'
+
+const NO_DEPARTMENT = 'No department'
 
 /** PRD Screen 14 — Payslips list. */
 export function PayslipList() {
@@ -14,6 +45,173 @@ export function PayslipList() {
   const [searchParams] = useSearchParams()
   const payrunId = searchParams.get('payrunId') ?? undefined
   const { data: payslips = [], isLoading, isError, error } = usePayslips(payrunId)
+
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+
+  const columns = useMemo<ColumnDef<Payslip>[]>(
+    () => [
+      {
+        id: 'select',
+        enableSorting: false,
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')
+            }
+            onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
+            aria-label='Select all payslips on this page'
+          />
+        ),
+        cell: ({ row }) => (
+          // The row itself opens the payslip, so the checkbox has to keep its
+          // click to itself or every tick would navigate away.
+          <div onClick={e => e.stopPropagation()}>
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={value => row.toggleSelected(!!value)}
+              aria-label={`Select payslip for ${row.original.employee?.name ?? 'employee'}`}
+            />
+          </div>
+        ),
+        size: 50
+      },
+      {
+        id: 'employee',
+        header: 'Employee',
+        accessorFn: row => row.employee?.name ?? '',
+        cell: ({ row }) => (
+          <div className='flex items-center gap-3'>
+            <Avatar className='size-9'>
+              <AvatarFallback className='text-xs'>
+                {initialsOf(row.original.employee?.name ?? '?')}
+              </AvatarFallback>
+            </Avatar>
+            <div className='flex min-w-0 flex-col'>
+              <span className='truncate font-medium'>{row.original.employee?.name ?? '—'}</span>
+              <span className='text-muted-foreground truncate'>
+                {row.original.employee?.employeeCode ?? ''}
+              </span>
+            </div>
+          </div>
+        ),
+        size: 260
+      },
+      {
+        id: 'department',
+        header: 'Department',
+        accessorFn: row => row.employee?.department?.name ?? NO_DEPARTMENT,
+        filterFn: 'equalsString',
+        cell: ({ getValue }) => <span className='text-muted-foreground'>{getValue<string>()}</span>
+      },
+      {
+        id: 'structure',
+        header: 'Salary Structure',
+        accessorFn: row => row.salaryStructure?.name ?? '—',
+        filterFn: 'equalsString',
+        cell: ({ getValue }) => <span className='text-muted-foreground'>{getValue<string>()}</span>
+      },
+      {
+        id: 'period',
+        header: 'Period',
+        accessorKey: 'period',
+        filterFn: 'equalsString',
+        cell: ({ row }) => <span>{row.original.period}</span>
+      },
+      {
+        id: 'workedDays',
+        header: 'Worked Days',
+        accessorKey: 'workedDays',
+        cell: ({ row }) => <div className='text-right tabular-nums'>{row.original.workedDays}</div>
+      },
+      {
+        id: 'gross',
+        header: 'Gross',
+        accessorKey: 'grossSalary',
+        cell: ({ row }) => <div className='text-right tabular-nums'>{money(row.original.grossSalary)}</div>
+      },
+      {
+        id: 'net',
+        header: 'Net',
+        accessorKey: 'netSalary',
+        cell: ({ row }) => (
+          <div className='text-right font-semibold tabular-nums'>{money(row.original.netSalary)}</div>
+        )
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessorKey: 'status',
+        filterFn: 'equalsString',
+        cell: ({ row }) => (
+          <Badge className={PAYSLIP_STATUS_CLASSES[row.original.status]}>
+            {PAYSLIP_STATUS_LABELS[row.original.status]}
+          </Badge>
+        )
+      },
+      {
+        id: 'actions',
+        header: () => 'Actions',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className='flex items-center justify-center'>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  aria-label={`View payslip for ${row.original.employee?.name ?? 'employee'}`}
+                  onClick={e => {
+                    e.stopPropagation()
+                    navigate(`/payroll/payslips/${row.original.id}`)
+                  }}
+                >
+                  <IconEye className='size-4.5' />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View payslip</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )
+      }
+    ],
+    [navigate]
+  )
+
+  const table = useReactTable({
+    data: payslips,
+    columns,
+    // Keyed by payslip id so a selection survives filtering, sorting and paging
+    // rather than following whichever row happens to sit at that index.
+    getRowId: row => row.id,
+    state: { sorting, columnFilters, rowSelection, pagination },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onRowSelectionChange: setRowSelection,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getPaginationRowModel: getPaginationRowModel(),
+    enableSortingRemoval: false
+  })
+
+  // Totals for whatever is ticked, so a payroll run can be cross-checked
+  // against a bank file without exporting anything.
+  const selected = table.getSelectedRowModel().rows
+  const selectedTotals = selected.reduce(
+    (acc, row) => ({
+      gross: acc.gross + row.original.grossSalary,
+      net: acc.net + row.original.netSalary
+    }),
+    { gross: 0, net: 0 }
+  )
 
   return (
     <div className='space-y-6'>
@@ -33,58 +231,108 @@ export function PayslipList() {
           Could not load payslips{error instanceof Error ? `: ${error.message}` : '.'}
         </div>
       ) : (
-        <Card className='p-0'>
-          <CardContent className='overflow-x-auto p-0'>
+        <Card className='w-full py-0'>
+          <div className='border-b'>
+            <div className='flex flex-col gap-4 p-6'>
+              <span className='text-xl font-semibold'>Filter</span>
+              <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4'>
+                <DataTableFacetFilter column={table.getColumn('period')} label='Period' />
+                <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                <DataTableFacetFilter column={table.getColumn('structure')} label='Salary Structure' />
+                <DataTableFacetFilter
+                  column={table.getColumn('status')}
+                  label='Status'
+                  format={value => PAYSLIP_STATUS_LABELS[value as PayslipStatus] ?? value}
+                />
+              </div>
+            </div>
+
+            {selected.length > 0 && (
+              <div className='bg-primary/5 flex flex-wrap items-center justify-between gap-3 border-t px-6 py-3'>
+                <p className='text-sm'>
+                  <span className='font-semibold'>{selected.length}</span> payslip
+                  {selected.length === 1 ? '' : 's'} selected ·{' '}
+                  <span className='text-muted-foreground'>Gross</span>{' '}
+                  <span className='font-medium tabular-nums'>{money(selectedTotals.gross)}</span> ·{' '}
+                  <span className='text-muted-foreground'>Net</span>{' '}
+                  <span className='font-semibold tabular-nums'>{money(selectedTotals.net)}</span>
+                </p>
+                <Button variant='ghost' size='sm' onClick={() => setRowSelection({})}>
+                  <IconX />
+                  Clear selection
+                </Button>
+              </div>
+            )}
+
             <Table>
               <TableHeader>
-                <TableRow className='bg-muted/50'>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Salary Structure</TableHead>
-                  <TableHead>Payrun</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead className='text-right'>Worked Days</TableHead>
-                  <TableHead className='text-right'>Gross</TableHead>
-                  <TableHead className='text-right'>Net</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <TableRow key={headerGroup.id} className='h-14 border-t'>
+                    {headerGroup.headers.map(header => {
+                      const numeric = ['workedDays', 'gross', 'net'].includes(header.column.id)
+                      return (
+                        <TableHead
+                          key={header.id}
+                          style={{ width: header.getSize() ? `${header.getSize()}px` : undefined }}
+                          className='text-muted-foreground first:pl-4 last:px-4 last:text-center'
+                        >
+                          {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                            <div
+                              className={`flex h-full cursor-pointer items-center gap-2 select-none ${numeric ? 'justify-end' : 'justify-between'}`}
+                              onClick={header.column.getToggleSortingHandler()}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  header.column.getToggleSortingHandler()?.(e)
+                                }
+                              }}
+                              tabIndex={0}
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {{
+                                asc: <IconChevronUp className='size-4 shrink-0 opacity-60' aria-hidden='true' />,
+                                desc: <IconChevronDown className='size-4 shrink-0 opacity-60' aria-hidden='true' />
+                              }[header.column.getIsSorted() as string] ?? null}
+                            </div>
+                          ) : (
+                            flexRender(header.column.columnDef.header, header.getContext())
+                          )}
+                        </TableHead>
+                      )
+                    })}
+                  </TableRow>
+                ))}
               </TableHeader>
               <TableBody>
-                {payslips.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className='h-24 text-center'>
-                      No payslips yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  payslips.map(payslip => (
+                {table.getRowModel().rows.length ? (
+                  table.getRowModel().rows.map(row => (
                     <TableRow
-                      key={payslip.id}
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
                       className='cursor-pointer'
-                      onClick={() => navigate(`/payroll/payslips/${payslip.id}`)}
+                      onClick={() => navigate(`/payroll/payslips/${row.original.id}`)}
                     >
-                      <TableCell className='font-medium'>
-                        <div>{payslip.employee?.name ?? '—'}</div>
-                        <div className='text-muted-foreground text-xs'>
-                          {payslip.employee?.employeeCode}
-                        </div>
-                      </TableCell>
-                      <TableCell>{payslip.salaryStructure?.name ?? '—'}</TableCell>
-                      <TableCell>{payslip.payrun?.period ?? '—'}</TableCell>
-                      <TableCell>{payslip.period}</TableCell>
-                      <TableCell className='text-right tabular-nums'>{payslip.workedDays}</TableCell>
-                      <TableCell className='text-right tabular-nums'>{money(payslip.grossSalary)}</TableCell>
-                      <TableCell className='text-right font-semibold tabular-nums'>{money(payslip.netSalary)}</TableCell>
-                      <TableCell>
-                        <Badge className={PAYSLIP_STATUS_CLASSES[payslip.status]}>
-                          {PAYSLIP_STATUS_LABELS[payslip.status]}
-                        </Badge>
-                      </TableCell>
+                      {row.getVisibleCells().map(cell => (
+                        <TableCell key={cell.id} className='h-14 first:w-12.5 first:pl-4 last:w-20 last:px-4'>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className='h-24 text-center'>
+                      {payslips.length === 0
+                        ? 'No payslips yet.'
+                        : 'No payslips match the current filters.'}
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
-          </CardContent>
+          </div>
+
+          <DataTablePagination table={table} noun='payslips' />
         </Card>
       )}
     </div>

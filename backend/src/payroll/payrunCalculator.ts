@@ -5,6 +5,7 @@ import { calculateEmployeeWorkedDays } from './workedDaysCalculator';
 import { executeSalaryRules } from './salaryRuleEngine';
 import { PayrunStatus, PayslipStatus } from '@prisma/client';
 import { emitEvent, SocketEvents } from '../socket/emitter';
+import { STRUCTURE_ACTIVE } from '../services/salaryStructure.service';
 
 export class PayrunCalculator {
   /**
@@ -34,6 +35,17 @@ export class PayrunCalculator {
       throw new ValidationError(`Cannot recompute a payrun with status '${payrun.status}'`);
     }
 
+    // Checked here as well as at payrun creation: a structure can be retired
+    // after its payrun exists, and computing would then generate payslips from
+    // rules the organisation has withdrawn.
+    if (payrun.salaryStructure.status !== STRUCTURE_ACTIVE) {
+      throw new ValidationError(
+        `Payslips cannot be generated: salary structure "${payrun.salaryStructure.name}" is ` +
+          `${payrun.salaryStructure.status.toLowerCase()}. Reactivate it, or move these employees ` +
+          'to an active structure.'
+      );
+    }
+
     const rules = payrun.salaryStructure.rules;
     if (rules.length === 0) {
       throw new ValidationError(`Salary structure '${payrun.salaryStructure.name}' has no active rules`);
@@ -55,6 +67,19 @@ export class PayrunCalculator {
       if (!contract) {
         console.warn(`[Payroll Warning] No active contract found for employee ${employeeId} in period`);
         continue;
+      }
+
+      // The payrun's own structure being active is not enough. An employee's
+      // contract can sit on a different, retired structure, and paying them
+      // under some other structure's rules would quietly ignore that the
+      // organisation withdrew the terms they are actually on. Named per
+      // employee so it is obvious who has to be moved.
+      if (contract.salaryStructure && contract.salaryStructure.status !== STRUCTURE_ACTIVE) {
+        throw new ValidationError(
+          `Payslip cannot be generated for ${payslip.employee.name} (${payslip.employee.employeeCode}): ` +
+            `their contract uses salary structure "${contract.salaryStructure.name}", which is ` +
+            `${contract.salaryStructure.status.toLowerCase()}. Move them to an active structure, or reactivate it.`
+        );
       }
 
       // 2. Calculate worked days & leaves

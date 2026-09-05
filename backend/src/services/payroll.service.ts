@@ -4,6 +4,7 @@ import { AuthUser } from '../middleware/auth';
 import { PayrunStatus, PayslipStatus, Prisma } from '@prisma/client';
 import { PayrunCalculator } from '../payroll/payrunCalculator';
 import { validatePayrunTransition } from '../payroll/payrollValidator';
+import { STRUCTURE_ACTIVE } from './salaryStructure.service';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 
 export interface CreatePayrunInput {
@@ -23,6 +24,14 @@ export class PayrollService {
       where: { id: input.salaryStructureId },
     });
     if (!structure) throw new NotFoundError('Salary Structure');
+
+    // An inactive structure is retired: it keeps its history but takes no new work.
+    if (structure.status !== STRUCTURE_ACTIVE) {
+      throw new ValidationError(
+        `Salary structure "${structure.name}" is ${structure.status.toLowerCase()}, so no payrun can be created from it. ` +
+          'Reactivate it, or pick an active structure.'
+      );
+    }
 
     const startDate = new Date(input.periodStartDate);
     const endDate = new Date(input.periodEndDate);
@@ -48,6 +57,39 @@ export class PayrollService {
       throw new ValidationError(
         'No eligible employees found with an active contract for this salary structure in this period'
       );
+    }
+
+    // A payrun runs one structure's rules, so everyone in it must actually be on
+    // that structure. The wizard already lists only those employees; this is the
+    // same rule at the API, so a hand-made request cannot pay someone under
+    // rules their contract was never placed on.
+    if (input.employeeIds && input.employeeIds.length > 0) {
+      const eligible = await prisma.contract.findMany({
+        where: {
+          employeeId: { in: targetEmployeeIds },
+          salaryStructureId: input.salaryStructureId,
+          status: 'ACTIVE',
+          startDate: { lte: endDate },
+          OR: [{ endDate: null }, { endDate: { gte: startDate } }],
+        },
+        select: { employeeId: true },
+      });
+
+      const eligibleIds = new Set(eligible.map((c) => c.employeeId));
+      const rejected = targetEmployeeIds.filter((id) => !eligibleIds.has(id));
+
+      if (rejected.length > 0) {
+        const people = await prisma.employee.findMany({
+          where: { id: { in: rejected } },
+          select: { name: true, employeeCode: true },
+        });
+        const named = people.map((p) => `${p.name} (${p.employeeCode})`).join(', ');
+        throw new ValidationError(
+          `${named} ${people.length === 1 ? 'has' : 'have'} no active contract on salary structure ` +
+            `"${structure.name}" for this period, so ${people.length === 1 ? 'they cannot' : 'they cannot'} ` +
+            'be included in this payrun.'
+        );
+      }
     }
 
     // Create Payrun and initial draft payslips in a transaction

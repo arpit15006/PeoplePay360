@@ -59,6 +59,11 @@ export function useSaveRule() {
   });
 }
 
+export function useDeleteStructure() {
+  const invalidate = useInvalidateSalary();
+  return useMutation({ mutationFn: salaryApi.deleteStructure, onSuccess: invalidate });
+}
+
 export function useDeleteRule() {
   const invalidate = useInvalidateSalary();
   return useMutation({ mutationFn: salaryApi.deleteRule, onSuccess: invalidate });

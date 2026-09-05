@@ -67,7 +67,7 @@ async function rankOfEmployee(employeeId: string): Promise<number> {
  * may cover for each other, which keeps a small team from deadlocking when the
  * only senior person is the one asking for the day off.
  */
-async function assertMayDecideFor(
+export async function assertMayDecideFor(
   actor: AuthUser,
   employeeId: string,
   selfMessage: string
@@ -203,6 +203,22 @@ export class TimeOffService {
 
     const allocated = input.allocated !== undefined ? input.allocated : existing.allocated;
     const taken = input.taken !== undefined ? input.taken : existing.taken;
+
+    // Remaining is derived, so nothing stopped a correction from cutting the
+    // grant below the days already consumed and leaving a negative balance —
+    // which then reads as leave owed back and lets no request through. Days
+    // already taken are the floor.
+    if (allocated < taken) {
+      // Both directions land here — cutting the grant, or recording more taken
+      // than was granted — so the message names whichever the caller changed.
+      throw new ValidationError(
+        input.taken !== undefined && input.allocated === undefined
+          ? `Days taken (${taken}) cannot exceed the ${allocated} day(s) granted. Raise the allocation first.`
+          : `This balance already has ${taken} day(s) taken, so it cannot be reduced to ${allocated}. ` +
+            `Set it to ${taken} or more.`
+      );
+    }
+
     const remaining = allocated - taken;
 
     return prisma.timeOffAllocation.update({

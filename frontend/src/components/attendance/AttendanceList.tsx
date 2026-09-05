@@ -30,8 +30,13 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { IconLogin2, IconLogout2, IconPencil, IconX } from '@tabler/icons-react'
+import { IconLogin2, IconLogout2, IconPencil, IconUpload, IconX } from '@tabler/icons-react'
 
+import { DataTablePaginationBase } from '@/components/shadcn-studio/data-table/data-table-parts'
+import BulkImportDialog from '@/components/bulk/BulkImportDialog'
+import { attendanceImportConfig } from '@/components/bulk/importConfigs'
+import { useImportContext } from '@/hooks/useImportContext'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import { useAttendance, useCreateAttendance, useUpdateAttendance } from '@/hooks/useAttendance'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -81,6 +86,8 @@ export function AttendanceList() {
   })
 
   const canCorrect = !!user && CAN_CORRECT.includes(user.role)
+  const [importing, setImporting] = useState(false)
+  const importContext = useImportContext()
   const isEmployee = user?.role === 'EMPLOYEE'
 
   const rows = useMemo(() => {
@@ -88,6 +95,11 @@ export function AttendanceList() {
       status === 'all' ? records : records.filter(r => r.status === (status as AttendanceStatus))
     return [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [records, status])
+
+  // A month of attendance for 1,000 employees is ~22,000 rows; render a page
+  // of them rather than the lot.
+  const { page, pageIndex, pageSize, pageCount, total, onPageChange, onPageSizeChange } =
+    useClientPagination(rows, 25)
 
   // The employee's record for today drives the check in / check out button.
   const today = formatAttendanceDate(todayIso())
@@ -134,6 +146,14 @@ export function AttendanceList() {
             Daily presence and exceptions. Worked hours feed the payrun.
           </p>
         </div>
+
+        {/* Bulk load — a month of punches from a device export. */}
+        {canCorrect && (
+          <Button variant='outline' onClick={() => setImporting(true)}>
+            <IconUpload />
+            Import CSV
+          </Button>
+        )}
 
         {/* Daily quick action — PRD Screen 6 */}
         {isEmployee && user?.employeeId && (
@@ -229,7 +249,7 @@ export function AttendanceList() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map(record => (
+                  page.map(record => (
                     <TableRow key={record.id}>
                       <TableCell className='font-medium'>
                         <div>{record.employee?.name ?? '—'}</div>
@@ -284,13 +304,17 @@ export function AttendanceList() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      )}
 
-      {!isLoading && !isError && (
-        <p className='text-muted-foreground text-sm'>
-          {rows.length} record{rows.length === 1 ? '' : 's'}
-        </p>
+          <DataTablePaginationBase
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            pageCount={pageCount}
+            total={total}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            noun='records'
+          />
+        </Card>
       )}
 
       {/* Manual correction — authorised users only */}
@@ -362,6 +386,13 @@ export function AttendanceList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkImportDialog
+        open={importing}
+        onOpenChange={setImporting}
+        config={attendanceImportConfig}
+        context={importContext}
+      />
     </div>
   )
 }

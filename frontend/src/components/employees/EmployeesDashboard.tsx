@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { IconPlus, IconSearch, IconX } from '@tabler/icons-react'
+import { IconPlus, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 
 import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
@@ -8,6 +8,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import ToggleGroupViewSwitcher, {
   type EmployeesView
 } from '@/components/shadcn-studio/toggle-group/toggle-group-05'
+import DropdownMenuCheckboxFilter from '@/components/shadcn-studio/dropdown-menu/dropdown-menu-13'
+import BulkImportDialog from '@/components/bulk/BulkImportDialog'
+import { employeeImportConfig } from '@/components/bulk/importConfigs'
+import { useImportContext } from '@/hooks/useImportContext'
 
 import EmployeesDataTable from '@/components/employees/EmployeesDataTable'
 import EmployeesKanban from '@/components/employees/EmployeesKanban'
@@ -19,8 +23,17 @@ import type { EmployeeRow, EmployeeStatus } from '@/types/employee'
 /** Roles allowed to create employees — PRD §28 (Employee sees own record only). */
 const CAN_CREATE = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 
-const SELECT_CLASS =
-  'border-input bg-background h-8 rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ON_LEAVE', label: 'On Leave' },
+  { value: 'TERMINATED', label: 'Terminated' }
+]
+
+const SORT_OPTIONS = [
+  { value: 'name', label: 'Name (A–Z)' },
+  { value: 'department', label: 'Department' }
+]
 
 /** PRD Screen 2 — Employees (List & Kanban). */
 export function EmployeesDashboard() {
@@ -35,6 +48,9 @@ export function EmployeesDashboard() {
   const [department, setDepartment] = useState('all')
   const [status, setStatus] = useState('all')
   const [sort, setSort] = useState('name')
+  const [importing, setImporting] = useState(false)
+
+  const importContext = useImportContext()
 
   const employees = useMemo(() => data ?? [], [data])
 
@@ -54,8 +70,13 @@ export function EmployeesDashboard() {
     setSearchParams(searchParams, { replace: true })
   }
 
-  const departments = useMemo(
-    () => Array.from(new Set(employees.map(e => e.department))).sort(),
+  const departmentOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All Departments' },
+      ...Array.from(new Set(employees.map(e => e.department)))
+        .sort()
+        .map(d => ({ value: d, label: d }))
+    ],
     [employees]
   )
 
@@ -105,10 +126,16 @@ export function EmployeesDashboard() {
         </div>
 
         {user && CAN_CREATE.includes(user.role) && (
-          <Button onClick={() => navigate('/employees/new')}>
-            <IconPlus />
-            New
-          </Button>
+          <div className='flex items-center gap-2'>
+            <Button variant='outline' onClick={() => setImporting(true)}>
+              <IconUpload />
+              Import CSV
+            </Button>
+            <Button onClick={() => navigate('/employees/new')}>
+              <IconPlus />
+              New
+            </Button>
+          </div>
         )}
       </div>
 
@@ -127,12 +154,12 @@ export function EmployeesDashboard() {
             />
           </InputGroup>
 
-          {/* Plain selects until a shadcn select variant is supplied. */}
-          <select
-            className={SELECT_CLASS}
+          <DropdownMenuCheckboxFilter
+            label='Department'
+            options={departmentOptions}
             value={department}
-            onChange={e => {
-              setDepartment(e.target.value)
+            onValueChange={next => {
+              setDepartment(next)
               // Changing it by hand should not leave a stale id in the URL.
               if (departmentIdParam) {
                 searchParams.delete('departmentId')
@@ -140,14 +167,7 @@ export function EmployeesDashboard() {
               }
             }}
             aria-label='Filter by department'
-          >
-            <option value='all'>All Departments</option>
-            {departments.map(d => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
+          />
 
           {/* Say plainly that the list is narrowed, and offer the way out. */}
           {department !== 'all' && (
@@ -157,27 +177,22 @@ export function EmployeesDashboard() {
             </Button>
           )}
 
-          <select
-            className={SELECT_CLASS}
+          <DropdownMenuCheckboxFilter
+            label='Status'
+            options={STATUS_OPTIONS}
             value={status}
-            onChange={e => setStatus(e.target.value)}
+            onValueChange={setStatus}
             aria-label='Filter by status'
-          >
-            <option value='all'>All Statuses</option>
-            <option value='ACTIVE'>Active</option>
-            <option value='ON_LEAVE'>On Leave</option>
-            <option value='TERMINATED'>Terminated</option>
-          </select>
+          />
 
-          <select
-            className={SELECT_CLASS}
+          <DropdownMenuCheckboxFilter
+            label='Sort by'
+            triggerPrefix='Sort by: '
+            options={SORT_OPTIONS}
             value={sort}
-            onChange={e => setSort(e.target.value)}
+            onValueChange={setSort}
             aria-label='Sort employees'
-          >
-            <option value='name'>Sort by: Name (A–Z)</option>
-            <option value='department'>Sort by: Department</option>
-          </select>
+          />
         </div>
 
         <ToggleGroupViewSwitcher value={view} onValueChange={setView} />
@@ -196,11 +211,20 @@ export function EmployeesDashboard() {
         <EmployeesKanban data={filtered} onCardClick={openEmployee} />
       )}
 
-      {!isLoading && !isError && (
+      {/* The list view carries its own "Showing 1 to 10 of 42" footer, so this
+          count is only needed behind the Kanban. */}
+      {!isLoading && !isError && view === 'kanban' && (
         <p className='text-muted-foreground text-sm'>
           Showing {filtered.length} of {scoped.length} employees
         </p>
       )}
+
+      <BulkImportDialog
+        open={importing}
+        onOpenChange={setImporting}
+        config={employeeImportConfig}
+        context={importContext}
+      />
     </div>
   )
 }

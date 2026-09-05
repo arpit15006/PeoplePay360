@@ -267,11 +267,19 @@ export function ContractForm() {
                 <SelectValue placeholder='Select structure' />
               </SelectTrigger>
               <SelectContent>
-                {structures.map(s => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
+                {/* Retired structures are hidden, except one this contract is
+                    already on — dropping it would silently blank the field on
+                    an older contract that is otherwise being edited. */}
+                {structures
+                  .filter(s => s.status === 'Active' || s.id === form.salaryStructureId)
+                  .map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                      {s.status !== 'Active' && (
+                        <span className='text-muted-foreground'> · {s.status}</span>
+                      )}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </Labelled>

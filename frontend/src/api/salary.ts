@@ -11,6 +11,7 @@ export const salaryApi = {
     id
       ? api.put<Env<SalaryStructure>>(`/salary-structures/${id}`, body).then(r => r.data)
       : api.post<Env<SalaryStructure>>('/salary-structures', body).then(r => r.data),
+  deleteStructure: (id: string) => api.del<Env<null>>(`/salary-structures/${id}`),
 
   rules: (structureId?: string) =>
     api

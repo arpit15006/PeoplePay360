@@ -5,7 +5,33 @@ import {
   CreateSalaryRuleInput,
   UpdateSalaryRuleInput,
 } from '../validators/payroll.validator';
-import { NotFoundError, ConflictError } from '../utils/errors';
+import { NotFoundError, ConflictError, ValidationError } from '../utils/errors';
+
+/** The only status a structure may be used under. Stored as a plain string. */
+export const STRUCTURE_ACTIVE = 'Active';
+
+/**
+ * Refuses anything that would put an inactive structure to work.
+ *
+ * The status column existed from the start but nothing read it, so a structure
+ * marked Inactive still accepted new contracts, still appeared in the payrun
+ * wizard and still computed payslips. Deactivating is meant to retire a
+ * structure: existing payslips keep their history, but nothing new may use it.
+ */
+export async function assertStructureIsActive(structureId: string, action: string): Promise<void> {
+  const structure = await prisma.salaryStructure.findUnique({
+    where: { id: structureId },
+    select: { name: true, status: true },
+  });
+  if (!structure) throw new NotFoundError('Salary Structure');
+
+  if (structure.status !== STRUCTURE_ACTIVE) {
+    throw new ValidationError(
+      `Salary structure "${structure.name}" is ${structure.status.toLowerCase()}, so it cannot ${action}. ` +
+        'Reactivate it, or pick an active structure.'
+    );
+  }
+}
 
 export class SalaryStructureService {
   // ─── 1. STRUCTURES ──────────────────────────────────────────
@@ -60,16 +86,33 @@ export class SalaryStructureService {
   static async deleteStructure(id: string) {
     const existing = await prisma.salaryStructure.findUnique({
       where: { id },
-      include: { _count: { select: { contracts: true, payruns: true } } },
+      include: { _count: { select: { contracts: true, payruns: true, payslips: true } } },
     });
     if (!existing) throw new NotFoundError('Salary Structure');
 
-    if (existing._count.contracts > 0 || existing._count.payruns > 0) {
-      throw new ConflictError('Cannot delete salary structure linked to active contracts or payruns');
+    // Payslips are the record of what someone was actually paid, so a structure
+    // they point at can never be removed — it would strand that history. The
+    // message names every blocker and its count rather than saying only that
+    // something is linked, so it is clear what has to move first.
+    const { contracts, payruns, payslips } = existing._count;
+    if (contracts > 0 || payruns > 0 || payslips > 0) {
+      const blockers = [
+        contracts > 0 ? `${contracts} contract(s)` : null,
+        payruns > 0 ? `${payruns} payrun(s)` : null,
+        payslips > 0 ? `${payslips} payslip(s)` : null,
+      ].filter(Boolean);
+      throw new ConflictError(
+        `"${existing.name}" is still used by ${blockers.join(', ')}. ` +
+          'Move them to another structure first, or mark this one Inactive to retire it instead.'
+      );
     }
 
-    await prisma.salaryStructure.delete({ where: { id } });
-    return { success: true, message: 'Salary structure deleted' };
+    // Rules belong to the structure alone, so they go with it.
+    await prisma.$transaction([
+      prisma.salaryRule.deleteMany({ where: { structureId: id } }),
+      prisma.salaryStructure.delete({ where: { id } }),
+    ]);
+    return { success: true, message: `Salary structure "${existing.name}" deleted` };
   }
 
   // ─── 2. RULES ───────────────────────────────────────────────
