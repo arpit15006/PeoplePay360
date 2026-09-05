@@ -287,15 +287,15 @@ export function UserManagement() {
 
       {/* Create / Edit */}
       <Dialog open={creating} onOpenChange={open => !open && setCreating(false)}>
-        <DialogContent>
+        <DialogContent className='sm:max-w-xl p-6'>
           <DialogHeader>
-            <DialogTitle>{editing ? 'Edit User' : 'Create User'}</DialogTitle>
+            <DialogTitle className='text-lg'>{editing ? 'Edit User' : 'Create User'}</DialogTitle>
             <DialogDescription>
               Link the account to an employee and assign the role that controls their access.
             </DialogDescription>
           </DialogHeader>
 
-          <div className='grid gap-4 sm:grid-cols-2'>
+          <div className='grid gap-4 sm:grid-cols-2 py-1'>
             <div className='space-y-1.5'>
               <Label htmlFor='u-name'>Name</Label>
               <Input id='u-name' value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
