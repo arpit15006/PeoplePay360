@@ -16,9 +16,23 @@ body {
   min-height: 100vh;
 }
 
-/* Typography defaults */
-:where(h1, h2, h3, h4, h5, h6) {
+/* Typography styles.
+   Scoped to the legacy app shell (.saas-layout). These are bare element
+   selectors, so they match h1/p directly and would beat any *inherited* colour
+   on shadcn screens — cascade layers do not help against a direct match.
+   Keep them scoped so Tailwind/shadcn screens style their own typography. */
+.saas-layout :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--text-primary);
+  font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.saas-layout h1 { font-size: 1.75rem; line-height: 1.25; }
+.saas-layout h2 { font-size: 1.35rem; line-height: 1.3; }
+.saas-layout h3 { font-size: 1.1rem; line-height: 1.4; }
+
+.saas-layout p {
+  color: var(--text-secondary);
 }
 
 /* App Shell Layout */

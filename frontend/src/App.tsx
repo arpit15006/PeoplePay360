@@ -1,87 +1,83 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+
 import AppLayout from './components/layout/AppLayout';
 import EmployeesDashboard from './components/employees/EmployeesDashboard';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import type { Role } from './types/user';
+
+const PAYROLL_ROLES: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'];
+const PAYSLIP_ROLES: Role[] = ['EMPLOYEE', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'];
+const DASHBOARD_ROLES: Role[] = [
+  'HR_MANAGER',
+  'HR_PAYROLL_USER',
+  'HR_PAYROLL_MANAGER',
+  'ADMIN',
+];
+
+/** Placeholder for a screen that is not built yet, wrapped in its role guard. */
+const soon = (pageName: string, routePath: string, allow?: Role[]) => (
+  <ProtectedRoute allow={allow}>
+    <ComingSoonPlaceholder pageName={pageName} routePath={routePath} />
+  </ProtectedRoute>
+);
 
 export default function App() {
   return (
     <Routes>
-      {/* Screen 1: Full-screen Standalone Login */}
+      {/* Screen 1 — full-screen standalone login, outside the app shell */}
       <Route path="/login" element={<LoginView />} />
 
-      {/* Main Application Layout for authenticated routes */}
+      {/* Authenticated application */}
       <Route
         path="/*"
         element={
-          <AppLayout>
-            <Routes>
-              {/* Root & Employees Dashboard */}
-              <Route path="/" element={<Navigate to="/employees" replace />} />
-              <Route path="/employees" element={<EmployeesDashboard />} />
+          <ProtectedRoute>
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/employees" replace />} />
 
-        {/* Other Planned Routes - Minimal Coming Soon Placeholders */}
-        <Route
-          path="/employees/new"
-          element={<ComingSoonPlaceholder pageName="New Employee" routePath="/employees/new" />}
-        />
-        <Route
-          path="/employees/:id"
-          element={<ComingSoonPlaceholder pageName="Employee Details" routePath="/employees/[id]" />}
-        />
-        <Route
-          path="/contracts"
-          element={<ComingSoonPlaceholder pageName="Contracts" routePath="/contracts" />}
-        />
-        <Route
-          path="/attendance"
-          element={<ComingSoonPlaceholder pageName="Attendance" routePath="/attendance" />}
-        />
-        <Route
-          path="/time-off"
-          element={<ComingSoonPlaceholder pageName="Time Off" routePath="/time-off" />}
-        />
-        <Route
-          path="/time-off/requests"
-          element={<ComingSoonPlaceholder pageName="Time Off Requests" routePath="/time-off/requests" />}
-        />
-        <Route
-          path="/time-off/allocations"
-          element={<ComingSoonPlaceholder pageName="Time Off Allocations" routePath="/time-off/allocations" />}
-        />
-        <Route
-          path="/time-off/types"
-          element={<ComingSoonPlaceholder pageName="Time Off Types" routePath="/time-off/types" />}
-        />
-        <Route
-          path="/payroll"
-          element={<ComingSoonPlaceholder pageName="Payroll" routePath="/payroll" />}
-        />
-        <Route
-          path="/payroll/payruns"
-          element={<ComingSoonPlaceholder pageName="Payruns" routePath="/payroll/payruns" />}
-        />
-        <Route
-          path="/payroll/payslips"
-          element={<ComingSoonPlaceholder pageName="Payslips" routePath="/payroll/payslips" />}
-        />
-        <Route
-          path="/payroll/salary-structures"
-          element={<ComingSoonPlaceholder pageName="Salary Structures" routePath="/payroll/salary-structures" />}
-        />
-        <Route
-          path="/payroll/salary-rules"
-          element={<ComingSoonPlaceholder pageName="Salary Rules" routePath="/payroll/salary-rules" />}
-        />
-        <Route
-          path="/dashboard"
-          element={<ComingSoonPlaceholder pageName="Dashboard" routePath="/dashboard" />}
-        />
+                {/* Employees */}
+                <Route path="/employees" element={<EmployeesDashboard />} />
+                <Route path="/employees/new" element={soon('New Employee', '/employees/new')} />
+                <Route path="/employees/:id" element={soon('Employee Form', '/employees/:id')} />
 
-              {/* Catch-all fallback */}
-              <Route path="*" element={<Navigate to="/employees" replace />} />
-            </Routes>
-          </AppLayout>
+                {/* Contracts */}
+                <Route path="/contracts" element={soon('Contracts', '/contracts')} />
+                <Route path="/contracts/:id" element={soon('Contract Form', '/contracts/:id')} />
+
+                {/* Working Schedules */}
+                <Route path="/schedules" element={soon('Working Schedules', '/schedules')} />
+                <Route path="/schedules/:id" element={soon('Schedule Form', '/schedules/:id')} />
+
+                {/* Attendance */}
+                <Route path="/attendance" element={soon('Attendance', '/attendance')} />
+                <Route path="/attendance/:id" element={soon('Attendance Form', '/attendance/:id')} />
+
+                {/* Time Off */}
+                <Route path="/timeoff" element={<Navigate to="/timeoff/requests" replace />} />
+                <Route path="/timeoff/requests" element={soon('Time Off Requests', '/timeoff/requests')} />
+                <Route path="/timeoff/allocations" element={soon('Time Off Allocations', '/timeoff/allocations')} />
+                <Route path="/timeoff/types" element={soon('Time Off Types', '/timeoff/types')} />
+
+                {/* Payroll */}
+                <Route path="/payroll" element={<Navigate to="/payroll/payruns" replace />} />
+                <Route path="/payroll/payruns" element={soon('Payruns', '/payroll/payruns', PAYROLL_ROLES)} />
+                <Route path="/payroll/payruns/new" element={soon('Payrun Wizard', '/payroll/payruns/new', PAYROLL_ROLES)} />
+                <Route path="/payroll/payruns/:id" element={soon('Payrun Processing', '/payroll/payruns/:id', PAYROLL_ROLES)} />
+                <Route path="/payroll/payslips" element={soon('Payslips', '/payroll/payslips', PAYSLIP_ROLES)} />
+                <Route path="/payroll/payslips/:id" element={soon('Payslip Detail', '/payroll/payslips/:id', PAYSLIP_ROLES)} />
+                <Route path="/payroll/structures" element={soon('Salary Structures', '/payroll/structures', PAYROLL_ROLES)} />
+                <Route path="/payroll/rules" element={soon('Salary Rules', '/payroll/rules', PAYROLL_ROLES)} />
+
+                {/* Payroll Dashboard */}
+                <Route path="/dashboard" element={soon('Payroll Dashboard', '/dashboard', DASHBOARD_ROLES)} />
+
+                <Route path="*" element={<Navigate to="/employees" replace />} />
+              </Routes>
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
     </Routes>

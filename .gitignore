@@ -32,3 +32,10 @@ Thumbs.db
 
 # Prisma generated artifacts
 backend/prisma/*.db
+
+# AI agent instruction files
+agents.md
+AGENTS.md
+claude.md
+CLAUDE.md
+.claude/

@@ -46,7 +46,7 @@ npm install
 npx prisma generate
 npx prisma db push       # Or npx prisma migrate dev
 npm run seed             # Seed realistic demo data
-npm run dev              # Start Express + Socket.IO server on port 5000
+npm run dev              # Start Express + Socket.IO server on port 5001
 ```
 
 ### Frontend Setup

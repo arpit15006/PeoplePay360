@@ -1,0 +1,14 @@
+/**
+ * Legacy vanilla-CSS layer (pre-shadcn app shell).
+ *
+ * These files are pulled into the low-priority `legacy` cascade layer — declared
+ * first in globals.css — so that Tailwind utilities always win over them. Without
+ * this, main.css's unlayered `* { margin: 0; padding: 0 }` reset and its element
+ * selectors for h1-h6/p override every Tailwind spacing and colour utility,
+ * because unlayered CSS outranks any @layer.
+ *
+ * Delete this file once AppLayout and the remaining saas-* screens are migrated.
+ */
+@import './tokens.css' layer(legacy);
+@import './main.css' layer(legacy);
+@import './components.css' layer(legacy);

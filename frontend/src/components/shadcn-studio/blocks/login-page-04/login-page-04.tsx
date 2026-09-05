@@ -1,188 +1,97 @@
-import LoginForm from '@/components/shadcn-studio/blocks/login-page-04/login-form';
-import { ShieldCheck, Users, FileText, Clock, DollarSign, PieChart } from 'lucide-react';
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 
-interface LoginPageProps {
-  onLoginSuccess?: (role: string) => void;
-}
+import LoginForm from '@/components/shadcn-studio/blocks/login-page-04/login-form'
 
-export const Login = ({ onLoginSuccess }: LoginPageProps) => {
+const Login = () => {
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-12 bg-slate-50 font-sans">
-      {/* Left Column: PeoplePay360 Brand & Connected Workflow Showcase (5 of 12 cols on desktop) */}
-      <div
-        className="hidden lg:flex lg:col-span-6 xl:col-span-5 flex-col justify-between p-12 xl:p-16 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, #3730a3 0%, #312e81 50%, #1e1b4b 100%)',
-          color: '#ffffff',
-        }}
-      >
-        {/* Subtle background glow */}
-        <div
-          className="absolute -top-32 -left-32 size-96 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)' }}
-        />
-        <div
-          className="absolute -bottom-32 -right-32 size-96 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%)' }}
-        />
-
-        {/* Brand Header */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="size-11 rounded-xl bg-white text-indigo-700 font-black flex items-center justify-center text-2xl shadow-md">
-              P
-            </div>
-            <div>
-              <div className="text-2xl font-black tracking-tight" style={{ color: '#ffffff' }}>
-                PEOPLEPAY<span style={{ color: '#a5b4fc' }}>360</span>
-              </div>
-              <div className="text-xs font-bold tracking-widest uppercase" style={{ color: '#c7d2fe' }}>
-                HR & Payroll Platform
-              </div>
-            </div>
-          </div>
-
-          <h1
-            className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight mb-4"
-            style={{ color: '#ffffff' }}
-          >
-            Unified HR & Autonomous Payroll Engine
-          </h1>
-          <p className="text-base leading-relaxed" style={{ color: '#e0e7ff' }}>
-            Connect employee lifecycle, contracts, working schedules, attendance, and sequence-based salary rules into validated payslips and live executive analytics.
+    <div className='h-dvh lg:grid lg:grid-cols-2'>
+      {/* Dashboard Preview */}
+      <div className='bg-primary flex flex-col items-center justify-between gap-12 p-10 max-lg:hidden xl:p-16'>
+        <div className='text-primary-foreground'>
+          <h1 className='mb-6 text-3xl font-bold'>Welcome back! Please sign in to your Shadcn Studio account</h1>
+          <p className='text-xl'>
+            Thank you for registering! Please check your inbox and click the verification link to activate your account.
           </p>
         </div>
 
-        {/* Connected Operational Workflow Grid */}
-        <div
-          className="relative z-10 my-8 p-6 rounded-2xl shadow-xl"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          <div
-            className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2"
-            style={{ color: '#c7d2fe' }}
-          >
-            <ShieldCheck className="size-4 text-emerald-400" />
-            Connected Operational Workflow
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div
-              className="p-3 rounded-xl transition-all"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <Users className="size-5 mx-auto mb-1 text-indigo-300" />
-              <div className="text-xs font-bold" style={{ color: '#ffffff' }}>1. Employee</div>
-              <div className="text-[10px]" style={{ color: '#cbd5e1' }}>Profiles & Depts</div>
-            </div>
-
-            <div
-              className="p-3 rounded-xl transition-all"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <FileText className="size-5 mx-auto mb-1 text-amber-300" />
-              <div className="text-xs font-bold" style={{ color: '#ffffff' }}>2. Contract</div>
-              <div className="text-[10px]" style={{ color: '#cbd5e1' }}>Period Matched</div>
-            </div>
-
-            <div
-              className="p-3 rounded-xl transition-all"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <Clock className="size-5 mx-auto mb-1 text-sky-300" />
-              <div className="text-xs font-bold" style={{ color: '#ffffff' }}>3. Attendance</div>
-              <div className="text-[10px]" style={{ color: '#cbd5e1' }}>Worked Days & Leaves</div>
-            </div>
-
-            <div
-              className="p-3 rounded-xl transition-all"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <ShieldCheck className="size-5 mx-auto mb-1 text-emerald-300" />
-              <div className="text-xs font-bold" style={{ color: '#ffffff' }}>4. Salary Rules</div>
-              <div className="text-[10px]" style={{ color: '#cbd5e1' }}>Sequential Execution</div>
-            </div>
-
-            <div
-              className="p-3 rounded-xl transition-all"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <DollarSign className="size-5 mx-auto mb-1 text-violet-300" />
-              <div className="text-xs font-bold" style={{ color: '#ffffff' }}>5. Payrun</div>
-              <div className="text-[10px]" style={{ color: '#cbd5e1' }}>2-Step Creation Wizard</div>
-            </div>
-
-            <div
-              className="p-3 rounded-xl transition-all"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-              }}
-            >
-              <PieChart className="size-5 mx-auto mb-1 text-rose-300" />
-              <div className="text-xs font-bold" style={{ color: '#ffffff' }}>6. Payslips</div>
-              <div className="text-[10px]" style={{ color: '#cbd5e1' }}>PDF & Live Dashboard</div>
-            </div>
-          </div>
+        <div className='border-card bg-card flex max-h-118 items-center justify-center rounded-xl border-12'>
+          <img
+            src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/auth/image-1.png'
+            alt='dashboard'
+            className='size-full rounded-xl object-contain dark:hidden'
+          />
+          <img
+            src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/auth/image-1-dark.png'
+            alt='dashboard'
+            className='hidden size-full rounded-xl object-contain dark:inline-block'
+          />
         </div>
 
-        {/* Footer badges */}
-        <div className="relative z-10 flex items-center justify-between text-xs" style={{ color: '#c7d2fe' }}>
-          <span>Enterprise 5-Tier RBAC</span>
-          <span>Neon PostgreSQL + WebSockets</span>
-          <span>Zero-Poll Realtime Updates</span>
+        <div className='flex gap-2 rounded-full bg-white/20 px-3 py-2'>
+          <a href='#' className='flex size-9 items-center justify-center rounded-full bg-white'>
+            <img
+              src='https://cdn.shadcnstudio.com/ss-assets/brand-logo/tailwind-logo.png'
+              alt='TailwindCSS Logo'
+              className='w-7'
+            />
+          </a>
+          <a href='#' className='flex size-9 items-center justify-center rounded-full bg-white'>
+            <img
+              src='https://cdn.shadcnstudio.com/ss-assets/brand-logo/nextjs-logo.png'
+              alt='Next.js Logo'
+              className='w-5.5'
+            />
+          </a>
+          <a href='#' className='flex size-9 items-center justify-center rounded-full bg-white'>
+            <img
+              src='https://cdn.shadcnstudio.com/ss-assets/brand-logo/shadcn-logo.png'
+              alt='Shadcn Logo'
+              className='w-5.5'
+            />
+          </a>
         </div>
       </div>
 
-      {/* Right Column: Corporate Login Form (7 of 12 cols on desktop) */}
-      <div className="col-span-12 lg:col-span-6 xl:col-span-7 flex flex-col items-center justify-center p-6 sm:p-12 lg:p-16 min-h-screen">
-        <div className="w-full max-w-md bg-white p-8 sm:p-10 rounded-2xl border border-slate-200 shadow-xl space-y-6">
-          {/* Mobile Logo View */}
-          <div className="lg:hidden flex items-center gap-2 mb-2">
-            <div className="size-9 rounded-lg bg-indigo-600 text-white font-black flex items-center justify-center text-lg shadow-sm">
-              P
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">PEOPLEPAY360</span>
+      {/* Login Form */}
+      <div className='flex h-full flex-col items-center justify-center py-10 sm:px-5'>
+        <div className='flex w-full max-w-lg flex-col gap-6 p-6'>
+          <div className='space-y-3 text-center'>
+            <h2 className='text-2xl font-semibold md:text-3xl lg:text-4xl'>Welcome Back 👋</h2>
+            <p className='text-muted-foreground'>Lets get started with your 30 days free trial</p>
           </div>
 
-          <div className="space-y-1">
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
-              Sign in to your account
-            </h2>
-            <p className="text-sm text-slate-500">
-              Access your organization portal and payroll dashboard
+          {/* Quick Login Buttons */}
+          <div className='flex flex-col gap-3'>
+            <Button variant='outline' className='grow' asChild>
+              <a href='#'>Login with Google</a>
+            </Button>
+            <Button variant='outline' className='grow' asChild>
+              <a href='#'>Login with Facebook</a>
+            </Button>
+          </div>
+
+          <div className='flex items-center gap-4'>
+            <Separator className='flex-1' />
+            <p>Or</p>
+            <Separator className='flex-1' />
+          </div>
+
+          <div className='space-y-4'>
+            {/* Form */}
+            <LoginForm />
+
+            <p className='text-muted-foreground text-center'>
+              Don&apos;t have an account yet?{' '}
+              <a href='#' className='text-foreground hover:underline'>
+                Sign Up
+              </a>
             </p>
           </div>
-
-          {/* Form */}
-          <LoginForm onLoginSuccess={onLoginSuccess} />
-
-          <p className="text-xs text-center text-slate-400 pt-2 border-t border-slate-100">
-            PeoplePay360 &copy; 2026. High-Security Enterprise Payroll Gateway.
-          </p>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Login;
+export default Login
