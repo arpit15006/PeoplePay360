@@ -39,10 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
+    // The server sets an httpOnly cookie; the token in the response body is
+    // deliberately not persisted anywhere JavaScript can read it.
     const res = await authApi.login({ email, password });
-    if (res.token) {
-      localStorage.setItem('token', res.token);
-    }
     setUser(res.user);
     return res.user;
   }, []);
@@ -51,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
-      localStorage.removeItem('token');
       setUser(null);
     }
   }, []);

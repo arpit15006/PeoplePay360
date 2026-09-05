@@ -16,11 +16,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Auth rides entirely on the httpOnly `token` cookie sent by credentials:
+ * 'include'. The JWT is deliberately never mirrored into localStorage: anything
+ * kept there is readable by any script on the page, so a single XSS would leak a
+ * token valid for seven days, whereas an httpOnly cookie cannot be read by JS.
+ * The API accepts either a cookie or a Bearer header, so the cookie alone is
+ * sufficient and strictly safer.
+ */
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((init.headers as Record<string, string>) ?? {}),
   };
 
