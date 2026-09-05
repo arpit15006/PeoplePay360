@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ScheduleService } from '../services/schedule.service';
+import { createScheduleSchema, updateScheduleSchema } from '../validators/schedule.validator';
 
 export async function listSchedules(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -21,7 +22,8 @@ export async function getSchedule(req: Request, res: Response, next: NextFunctio
 
 export async function createSchedule(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const schedule = await ScheduleService.createSchedule(req.body);
+    const validated = createScheduleSchema.parse(req.body);
+    const schedule = await ScheduleService.createSchedule(validated);
     res.status(201).json({ success: true, data: schedule });
   } catch (err) {
     next(err);
@@ -30,7 +32,8 @@ export async function createSchedule(req: Request, res: Response, next: NextFunc
 
 export async function updateSchedule(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const schedule = await ScheduleService.updateSchedule(req.params.id, req.body);
+    const validated = updateScheduleSchema.parse(req.body);
+    const schedule = await ScheduleService.updateSchedule(req.params.id, validated);
     res.json({ success: true, data: schedule });
   } catch (err) {
     next(err);

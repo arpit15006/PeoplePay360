@@ -23,14 +23,14 @@ router.get('/:id', getSchedule);
 // POST /api/schedules — Create schedule (HR Manager, HR Payroll Manager, Admin)
 router.post(
   '/',
-  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   createSchedule
 );
 
 // PUT /api/schedules/:id — Update schedule (HR Manager, HR Payroll Manager, Admin)
 router.put(
   '/:id',
-  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   updateSchedule
 );
 

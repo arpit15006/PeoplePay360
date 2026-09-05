@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { PayrollService } from '../services/payroll.service';
+import { createPayrunSchema } from '../validators/payroll.validator';
 
 // Payruns
 export async function listPayruns(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -22,7 +23,8 @@ export async function getPayrun(req: Request, res: Response, next: NextFunction)
 
 export async function createPayrun(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const payrun = await PayrollService.createPayrun(req.body);
+    const validated = createPayrunSchema.parse(req.body);
+    const payrun = await PayrollService.createPayrun(validated);
     res.status(201).json({ success: true, data: payrun });
   } catch (err) {
     next(err);
