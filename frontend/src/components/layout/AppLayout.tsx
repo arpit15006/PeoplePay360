@@ -33,6 +33,7 @@ import {
   IconFileDescription,
   IconClock,
   IconCalendarTime,
+  IconCalendarClock,
   IconCash,
   IconChevronRight,
   IconLogout
@@ -59,6 +60,9 @@ const menuItems: MenuItem[] = [
   { icon: <IconUsers />, label: 'Employees', href: '/employees' },
   { icon: <IconFileDescription />, label: 'Contracts', href: '/contracts' },
   { icon: <IconClock />, label: 'Attendance', href: '/attendance' },
+  // Not in the PRD's six-item nav tree, but Screen 5 has its own URL and would
+  // otherwise be unreachable. Move it if you want the tree kept literal.
+  { icon: <IconCalendarClock />, label: 'Working Schedules', href: '/schedules' },
   {
     icon: <IconCalendarTime />,
     label: 'Time Off',

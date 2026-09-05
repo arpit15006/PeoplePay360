@@ -5,6 +5,8 @@ import EmployeesDashboard from './components/employees/EmployeesDashboard';
 import EmployeeForm from './components/employees/EmployeeForm';
 import ContractsList from './components/contracts/ContractsList';
 import ContractForm from './components/contracts/ContractForm';
+import SchedulesList from './components/schedules/SchedulesList';
+import ScheduleForm from './components/schedules/ScheduleForm';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -72,8 +74,22 @@ export default function App() {
                 />
 
                 {/* Working Schedules */}
-                <Route path="/schedules" element={soon('Working Schedules', '/schedules')} />
-                <Route path="/schedules/:id" element={soon('Schedule Form', '/schedules/:id')} />
+                <Route
+                  path="/schedules"
+                  element={
+                    <ProtectedRoute>
+                      <SchedulesList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/schedules/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ScheduleForm />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Attendance */}
                 <Route path="/attendance" element={soon('Attendance', '/attendance')} />
