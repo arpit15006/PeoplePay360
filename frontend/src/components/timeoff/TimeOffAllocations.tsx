@@ -259,7 +259,9 @@ export function TimeOffAllocations() {
           <DialogHeader>
             <DialogTitle>{editingId ? 'Edit allocation' : 'New allocation'}</DialogTitle>
             <DialogDescription>
-              Grants a leave balance for a validity year. Taken starts at zero.
+              {editingId
+                ? 'Updates the leave balance granted for this validity year.'
+                : 'Grants a leave balance for a validity year. Taken starts at zero.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -339,7 +341,13 @@ export function TimeOffAllocations() {
               onClick={submit}
               disabled={createAllocation.isPending || updateAllocation.isPending}
             >
-              {createAllocation.isPending ? 'Creating…' : 'Create'}
+              {editingId
+                ? updateAllocation.isPending
+                  ? 'Saving…'
+                  : 'Edit'
+                : createAllocation.isPending
+                  ? 'Creating…'
+                  : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>
