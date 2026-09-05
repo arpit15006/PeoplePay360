@@ -28,6 +28,65 @@ interface JwtPayload {
 }
 
 /**
+ * Short-lived cache of the authenticated user.
+ *
+ * The token only carries `userId`, so the role and employeeId that authorisation
+ * depends on have to come from the database. Doing that on every request cost a
+ * full round-trip to a remote database before any handler ran, which dominated
+ * the response time of otherwise trivial endpoints.
+ *
+ * The database stays the source of truth; entries simply expire quickly. The TTL
+ * is deliberately short because it bounds how long a role change takes to apply:
+ * revoke someone's access and it takes effect within TTL_MS, not on their next
+ * login. Use `invalidateUserCache` to drop an entry immediately.
+ */
+const TTL_MS = 15_000;
+const userCache = new Map<string, { user: AuthUser; expiresAt: number }>();
+
+export function invalidateUserCache(userId?: string): void {
+  if (userId) userCache.delete(userId);
+  else userCache.clear();
+}
+
+async function loadUser(userId: string): Promise<AuthUser | null> {
+  const now = Date.now();
+
+  const cached = userCache.get(userId);
+  if (cached && cached.expiresAt > now) {
+    return cached.user;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      employeeId: true,
+    },
+  });
+
+  if (!user) {
+    // Negative results are not cached, so a deleted user cannot be resurrected
+    // by a stale entry and a restored one is picked up immediately.
+    userCache.delete(userId);
+    return null;
+  }
+
+  userCache.set(userId, { user, expiresAt: now + TTL_MS });
+
+  // Opportunistic sweep so the map cannot grow without bound.
+  if (userCache.size > 500) {
+    for (const [key, entry] of userCache) {
+      if (entry.expiresAt <= now) userCache.delete(key);
+    }
+  }
+
+  return user;
+}
+
+/**
  * JWT authentication middleware.
  * Extracts token from Authorization header (Bearer <token>) or cookie.
  * Loads user from DB and attaches to req.user.
@@ -53,16 +112,7 @@ export async function authenticate(
 
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        employeeId: true,
-      },
-    });
+    const user = await loadUser(decoded.userId);
 
     if (!user) {
       throw new UnauthorizedError('User not found. Token may be invalid.');
