@@ -5,6 +5,8 @@ import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { initSocket } from './socket';
 
+import authRouter from './routes/auth.routes';
+
 const app = express();
 const server = http.createServer(app);
 
@@ -20,6 +22,9 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+
+// Routes
+app.use('/api/auth', authRouter);
 
 // Base Health Check
 app.get('/api/health', (req: Request, res: Response) => {
