@@ -1,245 +1,194 @@
-import { useState } from 'react';
-import {
-  Plus,
-  Search,
-  LayoutGrid,
-  List,
-  MoreVertical,
-  Mail,
-  Building2,
-  Info,
-  Users,
-  CheckCircle2,
-} from 'lucide-react';
-import '../../styles/saas-dashboard.css';
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { IconPlus, IconSearch } from '@tabler/icons-react'
 
-interface Employee {
-  id: string;
-  initials: string;
-  name: string;
-  role: string;
-  department: string;
-  status: 'Active' | 'On Leave';
-  email: string;
-  code: string;
-  avatarClass: string;
-  type: string;
-}
+import { Button } from '@/components/ui/button'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { Skeleton } from '@/components/ui/skeleton'
+import ToggleGroupViewSwitcher, {
+  type EmployeesView
+} from '@/components/shadcn-studio/toggle-group/toggle-group-05'
 
-const EMPLOYEES: Employee[] = [
-  {
-    id: 'emp-1',
-    initials: 'AM',
-    name: 'Aarav Mehta',
-    role: 'Payroll Specialist',
-    department: 'Finance',
-    status: 'Active',
-    email: 'aarav.mehta@peoplepay.com',
-    code: 'EMP-1042',
-    avatarClass: 'saas-avatar-blue',
-    type: 'Full-time • Remote',
-  },
-  {
-    id: 'emp-2',
-    initials: 'SK',
-    name: 'Sara Khan',
-    role: 'HR Officer',
-    department: 'HR',
-    status: 'Active',
-    email: 'sara.khan@peoplepay.com',
-    code: 'EMP-1043',
-    avatarClass: 'saas-avatar-purple',
-    type: 'Full-time • On-site',
-  },
-  {
-    id: 'emp-3',
-    initials: 'JD',
-    name: 'John Dsouza',
-    role: 'Developer',
-    department: 'Engineering',
-    status: 'Active',
-    email: 'john.dsouza@peoplepay.com',
-    code: 'EMP-1044',
-    avatarClass: 'saas-avatar-emerald',
-    type: 'Full-time • Hybrid',
-  },
-  {
-    id: 'emp-4',
-    initials: 'NP',
-    name: 'Neha Patel',
-    role: 'Recruiter',
-    department: 'HR',
-    status: 'Active',
-    email: 'neha.patel@peoplepay.com',
-    code: 'EMP-1045',
-    avatarClass: 'saas-avatar-amber',
-    type: 'Full-time • On-site',
-  },
-];
+import EmployeesDataTable from '@/components/employees/EmployeesDataTable'
+import EmployeesKanban from '@/components/employees/EmployeesKanban'
+import { useEmployees } from '@/hooks/useEmployees'
+import { useAuth } from '@/context/AuthContext'
+import type { EmployeeRow, EmployeeStatus } from '@/types/employee'
 
+/** Roles allowed to create employees — PRD §28 (Employee sees own record only). */
+const CAN_CREATE = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+
+const SELECT_CLASS =
+  'border-input bg-background h-8 rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
+/** PRD Screen 2 — Employees (List & Kanban). */
 export function EmployeesDashboard() {
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const { data, isLoading, isError, error } = useEmployees()
+
+  const [view, setView] = useState<EmployeesView>('kanban')
+  const [search, setSearch] = useState('')
+  const [department, setDepartment] = useState('all')
+  const [status, setStatus] = useState('all')
+  const [sort, setSort] = useState('name')
+
+  const employees = useMemo(() => data ?? [], [data])
+
+  const departments = useMemo(
+    () => Array.from(new Set(employees.map(e => e.department))).sort(),
+    [employees]
+  )
+
+  // PRD §28: an Employee may only see their own record.
+  const scoped = useMemo(() => {
+    if (user?.role === 'EMPLOYEE') {
+      return employees.filter(e => e.id === user.employeeId)
+    }
+    return employees
+  }, [employees, user])
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    const rows = scoped.filter(e => {
+      const matchesSearch =
+        !term ||
+        e.name.toLowerCase().includes(term) ||
+        e.email.toLowerCase().includes(term) ||
+        e.employeeCode.toLowerCase().includes(term) ||
+        e.jobPosition.toLowerCase().includes(term)
+
+      const matchesDepartment = department === 'all' || e.department === department
+      const matchesStatus = status === 'all' || e.status === (status as EmployeeStatus)
+
+      return matchesSearch && matchesDepartment && matchesStatus
+    })
+
+    return [...rows].sort((a, b) =>
+      sort === 'department'
+        ? a.department.localeCompare(b.department) || a.name.localeCompare(b.name)
+        : a.name.localeCompare(b.name)
+    )
+  }, [scoped, search, department, status, sort])
+
+  const openEmployee = (employee: EmployeeRow) => navigate(`/employees/${employee.id}`)
 
   return (
-    <div className="saas-employees-page">
-      {/* Page Header */}
-      <div className="saas-page-header">
-        <div className="saas-page-title-group">
-          <h1 className="saas-page-title">Employees</h1>
-          <p className="saas-page-subtitle">
-            Manage your organization's employees and their employment information.
+    <div className='space-y-6'>
+      {/* Header */}
+      <div className='flex flex-wrap items-start justify-between gap-4'>
+        <div>
+          <h1 className='text-foreground text-2xl font-semibold tracking-tight'>Employees</h1>
+          <p className='text-muted-foreground text-sm'>
+            Manage your organization&apos;s employees and their employment information.
           </p>
         </div>
 
-        <button type="button" className="saas-btn saas-btn-primary saas-btn-md">
-          <Plus size={16} />
-          <span>New Employee</span>
-        </button>
+        {user && CAN_CREATE.includes(user.role) && (
+          <Button onClick={() => navigate('/employees/new')}>
+            <IconPlus />
+            New
+          </Button>
+        )}
       </div>
 
-      {/* Stats Overview Strip */}
-      <div className="saas-stats-strip">
-        <div className="saas-stat-chip">
-          <Users size={14} color="#64748b" />
-          <span className="saas-stat-chip-label">Total Staff:</span>
-          <span className="saas-stat-chip-value">4 Employees</span>
-        </div>
-        <div className="saas-stat-chip">
-          <CheckCircle2 size={14} color="#10b981" />
-          <span className="saas-stat-chip-label">Status:</span>
-          <span className="saas-stat-chip-value">4 Active</span>
-        </div>
-        <div className="saas-stat-chip">
-          <Building2 size={14} color="#64748b" />
-          <span className="saas-stat-chip-label">Departments:</span>
-          <span className="saas-stat-chip-value">3 Active</span>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="saas-toolbar">
-        <div className="saas-toolbar-left">
-          {/* Search Bar */}
-          <div className="saas-search-box">
-            <Search className="saas-search-icon" />
-            <input
-              type="text"
-              className="saas-search-input"
-              placeholder="Search employees..."
-              readOnly
+      {/* Toolbar: search, filters, view switcher */}
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <InputGroup className='w-64'>
+            <InputGroupAddon align='inline-start'>
+              <IconSearch className='size-4' />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder='Search...'
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              aria-label='Search employees'
             />
-          </div>
+          </InputGroup>
 
-          {/* Department Filter */}
-          <select className="saas-select-dropdown" defaultValue="all" aria-label="Filter by department">
-            <option value="all">All Departments</option>
-            <option value="finance">Finance</option>
-            <option value="hr">HR</option>
-            <option value="engineering">Engineering</option>
+          {/* Plain selects until a shadcn select variant is supplied. */}
+          <select
+            className={SELECT_CLASS}
+            value={department}
+            onChange={e => setDepartment(e.target.value)}
+            aria-label='Filter by department'
+          >
+            <option value='all'>All Departments</option>
+            {departments.map(d => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
           </select>
 
-          {/* Status Filter */}
-          <select className="saas-select-dropdown" defaultValue="all" aria-label="Filter by status">
-            <option value="all">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="on-leave">On Leave</option>
+          <select
+            className={SELECT_CLASS}
+            value={status}
+            onChange={e => setStatus(e.target.value)}
+            aria-label='Filter by status'
+          >
+            <option value='all'>All Statuses</option>
+            <option value='ACTIVE'>Active</option>
+            <option value='ON_LEAVE'>On Leave</option>
+            <option value='TERMINATED'>Terminated</option>
           </select>
 
-          {/* Sort Option */}
-          <select className="saas-select-dropdown" defaultValue="name" aria-label="Sort employees">
-            <option value="name">Sort by: Name (A–Z)</option>
-            <option value="department">Sort by: Department</option>
-            <option value="recent">Sort by: Recently Added</option>
+          <select
+            className={SELECT_CLASS}
+            value={sort}
+            onChange={e => setSort(e.target.value)}
+            aria-label='Sort employees'
+          >
+            <option value='name'>Sort by: Name (A–Z)</option>
+            <option value='department'>Sort by: Department</option>
           </select>
         </div>
 
-        {/* View Switcher (Kanban / List) */}
-        <div className="saas-toolbar-right">
-          <div className="saas-view-switcher">
-            <button
-              type="button"
-              className={`saas-view-btn ${viewMode === 'kanban' ? 'active' : ''}`}
-              onClick={() => setViewMode('kanban')}
-            >
-              <LayoutGrid size={15} />
-              <span>Kanban</span>
-            </button>
-            <button
-              type="button"
-              className={`saas-view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              <List size={15} />
-              <span>List</span>
-            </button>
-          </div>
+        <ToggleGroupViewSwitcher value={view} onValueChange={setView} />
+      </div>
+
+      {/* Body */}
+      {isLoading ? (
+        <EmployeesLoadingSkeleton />
+      ) : isError ? (
+        <div className='border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-6 text-sm'>
+          Could not load employees{error instanceof Error ? `: ${error.message}` : '.'}
         </div>
-      </div>
+      ) : view === 'list' ? (
+        <EmployeesDataTable data={filtered} onRowClick={openEmployee} />
+      ) : (
+        <EmployeesKanban data={filtered} onCardClick={openEmployee} />
+      )}
 
-      {/* Employee Cards Grid (Responsive: 2-3 Desktop, 2 Tablet, 1 Mobile) */}
-      <div className="saas-employees-grid">
-        {EMPLOYEES.map((employee) => (
-          <div key={employee.id} className="saas-card">
-            <div className="saas-card-body">
-              {/* Card Header Row */}
-              <div className="saas-card-header-row">
-                <div className="saas-card-identity">
-                  <div className={`saas-avatar ${employee.avatarClass}`}>
-                    {employee.initials}
-                  </div>
-                  <div className="saas-card-names">
-                    <h3 className="saas-card-name">{employee.name}</h3>
-                    <span className="saas-card-role">{employee.role}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="saas-card-menu-btn"
-                  title="Employee Actions"
-                  aria-label={`Actions for ${employee.name}`}
-                >
-                  <MoreVertical size={16} />
-                </button>
-              </div>
-
-              {/* Department & Status Badges */}
-              <div className="saas-card-tags-row">
-                <span className="saas-badge saas-badge-secondary">
-                  {employee.department}
-                </span>
-
-                <span className="saas-badge saas-badge-success">
-                  <span className="saas-badge-dot"></span>
-                  <span>{employee.status}</span>
-                </span>
-              </div>
-
-              {/* Secondary Information */}
-              <div className="saas-card-meta">
-                <div className="saas-card-meta-item">
-                  <Mail size={14} />
-                  <span>{employee.email}</span>
-                </div>
-                <div className="saas-card-meta-item">
-                  <Building2 size={14} />
-                  <span>{employee.code} • {employee.type}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom Information Callout */}
-      <div className="saas-info-callout">
-        <Info className="saas-info-icon" />
-        <div>
-          <strong>Kanban Directory View:</strong> Click on an employee card to open the complete employee profile and management record.
-        </div>
-      </div>
+      {!isLoading && !isError && (
+        <p className='text-muted-foreground text-sm'>
+          Showing {filtered.length} of {scoped.length} employees
+        </p>
+      )}
     </div>
-  );
+  )
 }
 
-export default EmployeesDashboard;
+/** skeleton-11 layout, sized for the employees table. */
+const EmployeesLoadingSkeleton = () => (
+  <div className='flex w-full flex-col gap-4'>
+    <div className='flex items-center gap-4 border-b pb-2'>
+      <Skeleton className='size-8 rounded-md' />
+      <Skeleton className='h-8 flex-1' />
+      <Skeleton className='h-8 w-24' />
+      <Skeleton className='h-8 w-20' />
+    </div>
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div key={i} className='flex items-center gap-4'>
+        <Skeleton className='size-8 rounded-md' />
+        <Skeleton className='h-8 flex-1' />
+        <Skeleton className='h-8 w-24' />
+        <Skeleton className='h-8 w-20' />
+      </div>
+    ))}
+  </div>
+)
+
+export default EmployeesDashboard
