@@ -6,17 +6,17 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seeding for PeoplePay360...');
 
-  // 1. Clean existing records in reverse dependency order
+  // 1. Clean existing records in correct reverse dependency order
   await prisma.payslipLine.deleteMany();
   await prisma.payslip.deleteMany();
   await prisma.payrun.deleteMany();
-  await prisma.salaryRule.deleteMany();
-  await prisma.salaryStructure.deleteMany();
   await prisma.timeOffRequest.deleteMany();
   await prisma.timeOffAllocation.deleteMany();
   await prisma.timeOffType.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.contract.deleteMany();
+  await prisma.salaryRule.deleteMany();
+  await prisma.salaryStructure.deleteMany();
   await prisma.dailySchedule.deleteMany();
   await prisma.workingSchedule.deleteMany();
   await prisma.user.deleteMany();
