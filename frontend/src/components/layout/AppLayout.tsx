@@ -1,150 +1,244 @@
-import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import type { ReactElement, ReactNode } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Clock,
-  Calendar,
-  DollarSign,
-  Menu,
-  X,
-  ChevronRight,
-  ShieldCheck,
-  Building2,
-} from 'lucide-react';
-import '../../styles/saas-dashboard.css';
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarInset,
+  SidebarRail,
+  SidebarTrigger
+} from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import AppBreadcrumb from '@/components/layout/AppBreadcrumb'
 
-interface AppLayoutProps {
-  children: React.ReactNode;
-}
+import LogoSvg from '@/assets/svg/logo'
+import {
+  IconLayoutDashboard,
+  IconUsers,
+  IconFileDescription,
+  IconClock,
+  IconCalendarTime,
+  IconCash,
+  IconChevronRight,
+  IconLogout
+} from '@tabler/icons-react'
 
-export function AppLayout({ children }: AppLayoutProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
+import { useAuth } from '@/context/AuthContext'
+import { ROLE_LABELS, type Role } from '@/types/user'
+import { initialsOf } from '@/types/employee'
 
-  const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Employees', path: '/employees', icon: Users },
-    { name: 'Contracts', path: '/contracts', icon: FileText },
-    { name: 'Attendance', path: '/attendance', icon: Clock },
-    { name: 'Time Off', path: '/time-off', icon: Calendar },
-    { name: 'Payroll', path: '/payroll', icon: DollarSign },
-  ];
+const PAYROLL: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+const PAYSLIP: Role[] = ['EMPLOYEE', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+const NOT_EMPLOYEE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 
-  // Get current active route name for breadcrumb
-  const currentNav = navItems.find((item) =>
-    item.path === '/'
-      ? location.pathname === '/' || location.pathname === '/employees'
-      : location.pathname.startsWith(item.path)
-  );
-  const currentTitle = currentNav ? currentNav.name : 'HR Operations';
+type MenuSubItem = { label: string; href: string; allow?: Role[] }
+
+type MenuItem = {
+  icon: ReactElement
+  label: string
+  allow?: Role[]
+} & ({ href: string; items?: never } | { href?: never; items: MenuSubItem[] })
+
+/** PRD section 2 navigation hierarchy. */
+const menuItems: MenuItem[] = [
+  { icon: <IconUsers />, label: 'Employees', href: '/employees' },
+  { icon: <IconFileDescription />, label: 'Contracts', href: '/contracts' },
+  { icon: <IconClock />, label: 'Attendance', href: '/attendance' },
+  {
+    icon: <IconCalendarTime />,
+    label: 'Time Off',
+    items: [
+      { label: 'Requests', href: '/timeoff/requests' },
+      { label: 'Allocations', href: '/timeoff/allocations' },
+      { label: 'Time Off Types', href: '/timeoff/types' }
+    ]
+  },
+  {
+    icon: <IconCash />,
+    label: 'Payroll',
+    allow: PAYSLIP,
+    items: [
+      { label: 'Payruns', href: '/payroll/payruns', allow: PAYROLL },
+      { label: 'Payslips', href: '/payroll/payslips', allow: PAYSLIP },
+      { label: 'Salary Structures', href: '/payroll/structures', allow: PAYROLL },
+      { label: 'Salary Rules', href: '/payroll/rules', allow: PAYROLL }
+    ]
+  },
+  {
+    icon: <IconLayoutDashboard />,
+    label: 'Payroll Dashboard',
+    href: '/dashboard',
+    allow: NOT_EMPLOYEE
+  }
+]
+
+const permitted = (role: Role | undefined, allow?: Role[]) => !allow || (!!role && allow.includes(role))
+
+const SidebarGroupedMenuItems = ({
+  data,
+  groupLabel,
+  role
+}: {
+  data: MenuItem[]
+  groupLabel?: string
+  role?: Role
+}) => {
+  const { pathname } = useLocation()
 
   return (
-    <div className="saas-layout">
-      {/* Mobile backdrop */}
-      {mobileMenuOpen && (
-        <div
-          className="saas-sidebar-backdrop"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+    <SidebarGroup className='pr-4 pl-0'>
+      {groupLabel && <SidebarGroupLabel className='px-4'>{groupLabel}</SidebarGroupLabel>}
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {data
+            .filter(item => permitted(role, item.allow))
+            .map(item => {
+              if (item.items) {
+                const subItems = item.items.filter(sub => permitted(role, sub.allow))
+                if (subItems.length === 0) return null
+                const groupOpen = subItems.some(sub => pathname.startsWith(sub.href))
 
-      {/* Modern SaaS Sidebar */}
-      <aside className={`saas-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-        {/* Brand Header */}
-        <div className="saas-sidebar-brand">
-          <div className="saas-brand-logo">
-            P
-          </div>
-          <div className="saas-brand-text">
-            <span className="saas-brand-name">
-              PEOPLEPAY<span>360</span>
-            </span>
-            <span className="saas-brand-tagline">HR & PAYROLL SUITE</span>
-          </div>
-        </div>
+                return (
+                  <Collapsible className='group/collapsible' key={item.label} defaultOpen={groupOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton
+                          tooltip={item.label}
+                          className='rounded-l-0 rounded-r-full pr-2 pl-4 group-data-[collapsible=icon]:w-10! group-data-[collapsible=icon]:pl-4!'
+                        >
+                          {item.icon}
+                          <span>{item.label}</span>
+                          <IconChevronRight className='ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90' />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub className='ml-5.5'>
+                          {subItems.map(subItem => (
+                            <SidebarMenuSubItem key={subItem.label}>
+                              <SidebarMenuSubButton
+                                className='justify-between'
+                                isActive={pathname.startsWith(subItem.href)}
+                                asChild
+                              >
+                                <NavLink to={subItem.href}>{subItem.label}</NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )
+              }
 
-        {/* Navigation Items */}
-        <nav className="saas-sidebar-nav">
-          <div className="saas-nav-section-title">Core Modules</div>
-
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              location.pathname === item.path ||
-              (item.path === '/employees' && location.pathname === '/');
-
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`saas-nav-link ${isActive ? 'active' : ''}`}
-              >
-                <Icon className="saas-nav-icon" />
-                <span>{item.name}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
-
-        {/* User / Profile Section at Bottom */}
-        <div className="saas-sidebar-footer">
-          <div className="saas-user-profile">
-            <div className="saas-user-avatar">
-              AM
-            </div>
-            <div className="saas-user-info">
-              <span className="saas-user-name">Alex Morgan</span>
-              <span className="saas-user-role">HR Administrator</span>
-            </div>
-          </div>
-          <span title="Administrator Role Verified">
-            <ShieldCheck size={16} color="#2563eb" />
-          </span>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="saas-main">
-        {/* Top Header Bar */}
-        <header className="saas-top-bar">
-          <div className="saas-top-bar-left">
-            <button
-              type="button"
-              className="saas-mobile-toggle"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle Navigation Menu"
-            >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-
-            <div className="saas-breadcrumb">
-              <Building2 size={15} color="#94a3b8" />
-              <span>PeoplePay360</span>
-              <ChevronRight size={13} className="saas-breadcrumb-separator" />
-              <span>HR Management</span>
-              <ChevronRight size={13} className="saas-breadcrumb-separator" />
-              <span className="saas-breadcrumb-current">{currentTitle}</span>
-            </div>
-          </div>
-
-          <div className="saas-top-bar-right">
-            <div className="saas-status-pill">
-              <span className="saas-status-dot-green"></span>
-              <span>Enterprise Ready</span>
-            </div>
-          </div>
-        </header>
-
-        {/* Page Body */}
-        <main className="saas-page-content">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+              return (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton
+                    tooltip={item.label}
+                    isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                    className='rounded-l-0 rounded-r-full pr-2 pl-4 group-data-[collapsible=icon]:w-10! group-data-[collapsible=icon]:pl-4!'
+                    asChild
+                  >
+                    <NavLink to={item.href}>
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  )
 }
 
-export default AppLayout;
+export function AppLayout({ children }: { children: ReactNode }) {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
+  return (
+    <SidebarProvider>
+      <Sidebar collapsible='icon'>
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton size='lg' className='gap-2.5 bg-transparent! [&>svg]:size-8' asChild>
+                  <NavLink to='/employees'>
+                    <LogoSvg className='[&_rect]:fill-sidebar [&_rect:first-child]:fill-primary' />
+                    <span className='text-xl font-semibold'>PeoplePay360</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+
+          <SidebarContent>
+            <SidebarGroupedMenuItems data={menuItems} groupLabel='Core Modules' role={user?.role} />
+          </SidebarContent>
+
+          <SidebarFooter className='[[data-state=collapsed]_&]:hidden'>
+            <div className='flex items-center gap-3 rounded-md border p-3'>
+              <Avatar>
+                <AvatarFallback>{initialsOf(user?.name ?? 'PP')}</AvatarFallback>
+              </Avatar>
+              <div className='min-w-0 flex-1'>
+                <p className='truncate text-sm font-medium'>{user?.name ?? 'Signed out'}</p>
+                <p className='text-muted-foreground truncate text-xs'>
+                  {user ? ROLE_LABELS[user.role] : '—'}
+                </p>
+              </div>
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                onClick={handleLogout}
+                aria-label='Sign out'
+                title='Sign out'
+              >
+                <IconLogout />
+              </Button>
+            </div>
+        </SidebarFooter>
+
+        {/* Draggable edge so the sidebar can be collapsed from the rail too. */}
+        <SidebarRail />
+      </Sidebar>
+
+      {/* SidebarInset is the peer of <Sidebar>; it owns the remaining width and
+          reflows automatically when the sidebar collapses to icons. Do not wrap
+          it in an extra flex div or constrain it with mx-auto/max-w — that is
+          what produced the dead space around the content when collapsed. */}
+      <SidebarInset className='min-w-0'>
+        <header className='bg-background sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b px-4'>
+          <SidebarTrigger className='-ml-1 [&_svg]:size-5!' />
+          <Separator orientation='vertical' className='mr-1 data-[orientation=vertical]:h-4' />
+          <AppBreadcrumb />
+        </header>
+
+        <div className='min-w-0 flex-1 p-4 sm:p-6'>{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
+export default AppLayout

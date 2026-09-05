@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { TooltipProvider } from './components/ui/tooltip';
 
 // Tailwind v4 + shadcn theme. Imported first: it declares the `legacy` cascade
 // layer, and its unlayered :root wins the token overlap (--primary, --accent).
@@ -27,7 +28,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          {/* Sidebar menu buttons render tooltips when collapsed to icons. */}
+          <TooltipProvider>
+            <App />
+          </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

@@ -7,10 +7,26 @@ import { Field, FieldLabel, FieldGroup } from '@/components/ui/field'
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { roleLandingPath, ROLE_LABELS, type Role } from '@/types/user'
 
 interface LoginFormProps {
   onSuccess?: () => void
 }
+
+/**
+ * Seeded demo accounts (backend/prisma/seed.ts). One click signs in and lands
+ * on that role's screen per PRD Screen 1. Credentials are always verified by
+ * the server — these buttons only supply them.
+ */
+const DEMO_ACCOUNTS: { role: Role; email: string; lands: string }[] = [
+  { role: 'ADMIN', email: 'admin@peoplepay360.com', lands: 'Dashboard' },
+  { role: 'HR_MANAGER', email: 'hr.manager@peoplepay360.com', lands: 'Employees' },
+  { role: 'HR_PAYROLL_USER', email: 'payroll.user@peoplepay360.com', lands: 'Payruns' },
+  { role: 'HR_PAYROLL_MANAGER', email: 'payroll.manager@peoplepay360.com', lands: 'Dashboard' },
+  { role: 'EMPLOYEE', email: 'employee@peoplepay360.com', lands: 'My profile' },
+]
+
+const DEMO_PASSWORD = 'password123'
 
 const LoginForm = ({ onSuccess }: LoginFormProps) => {
   const [isVisible, setIsVisible] = useState(false)
@@ -23,21 +39,16 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !password) {
-      setError('Please enter both email and password.')
-      return
-    }
-
+  /** Authenticate, then route to the landing screen for the returned role. */
+  const signIn = async (emailValue: string, passwordValue: string) => {
     try {
       setLoading(true)
       setError(null)
-      await login(email, password)
+      const user = await login(emailValue, passwordValue)
       if (onSuccess) {
         onSuccess()
       } else {
-        navigate('/employees')
+        navigate(roleLandingPath(user), { replace: true })
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Invalid email or password'
@@ -45,6 +56,22 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !password) {
+      setError('Please enter both email and password.')
+      return
+    }
+    await signIn(email, password)
+  }
+
+  /** One-click demo persona: fill the fields, then sign in as that role. */
+  const handleDemoLogin = async (demoEmail: string) => {
+    setEmail(demoEmail)
+    setPassword(DEMO_PASSWORD)
+    await signIn(demoEmail, DEMO_PASSWORD)
   }
 
   return (
@@ -144,6 +171,39 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
             <span>{loading ? 'Signing in…' : 'Sign in'}</span>
             {!loading && <ArrowRight className="size-4" />}
           </Button>
+        </div>
+
+        {/* Demo credentials — one click signs in and lands on that role's screen */}
+        <div className="pt-3 border-t border-slate-100">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 text-center mb-2.5">
+            Demo accounts
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.role}
+                type="button"
+                disabled={loading}
+                onClick={() => handleDemoLogin(account.email)}
+                title={`${account.email} → ${account.lands}`}
+                className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors disabled:opacity-50 ${
+                  email === account.email
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
+                } ${account.role === 'EMPLOYEE' ? 'col-span-2' : ''}`}
+              >
+                <span className="block text-[11px] font-semibold text-slate-700 leading-tight">
+                  {ROLE_LABELS[account.role]}
+                </span>
+                <span className="block text-[10px] text-slate-400 leading-tight">
+                  → {account.lands}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-[10px] text-slate-400">
+            All demo accounts use the password <span className="font-mono">{DEMO_PASSWORD}</span>
+          </p>
         </div>
       </FieldGroup>
     </form>
