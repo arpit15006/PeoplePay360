@@ -1,0 +1,362 @@
+// Prisma Schema for PeoplePay360 — Integrated HR & Payroll Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// Enums
+// -------------------------------------------------------------
+
+enum Role {
+  EMPLOYEE
+  HR_MANAGER
+  HR_PAYROLL_USER
+  HR_PAYROLL_MANAGER
+  ADMIN
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+enum EmployeeType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum ScheduleType {
+  STANDARD
+  FLEXIBLE
+  SHIFT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  HALF_DAY
+  ABSENT
+}
+
+enum TimeOffStatus {
+  TO_APPROVE
+  APPROVED
+  REFUSED
+}
+
+enum RuleCategory {
+  BASIC
+  ALLOWANCE
+  GROSS
+  DEDUCTION
+  NET
+}
+
+enum RuleCalcType {
+  FIXED
+  PERCENTAGE
+  FORMULA
+}
+
+enum PayrunStatus {
+  DRAFT
+  COMPUTED
+  VALIDATED
+  PAID
+  SENT
+}
+
+enum PayslipStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  SENT
+}
+
+// -------------------------------------------------------------
+// Models
+// -------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  name         String
+  role         Role      @default(EMPLOYEE)
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  approvedLeaves TimeOffRequest[] @relation("ApprovedBy")
+
+  @@map("users")
+}
+
+model Department {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  managerId   String?
+  manager     Employee?    @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+  employees   Employee[]   @relation("DepartmentEmployees")
+  contracts   Contract[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("departments")
+}
+
+model Employee {
+  id              String         @id @default(uuid())
+  employeeCode    String         @unique // e.g. EMP-001
+  name            String
+  email           String         @unique
+  phone           String
+  departmentId    String
+  department      Department     @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  managerId       String?
+  manager         Employee?      @relation("EmployeeHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates    Employee[]     @relation("EmployeeHierarchy")
+  jobPosition     String
+  employeeType    EmployeeType   @default(FULL_TIME)
+  scheduleId      String?
+  workingSchedule WorkingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  status          EmployeeStatus @default(ACTIVE)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User?
+  managedDepts    Department[]   @relation("DepartmentManager")
+  contracts       Contract[]
+  attendances     Attendance[]
+  timeOffRequests TimeOffRequest[]
+  timeOffAllocations TimeOffAllocation[]
+  payslips        Payslip[]
+
+  @@map("employees")
+}
+
+model Contract {
+  id                String          @id @default(uuid())
+  employeeId        String
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate         DateTime
+  endDate           DateTime?
+  wage              Float
+  departmentId      String
+  department        Department      @relation(fields: [departmentId], references: [id])
+  position          String
+  salaryStructureId String
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id])
+  status            ContractStatus  @default(DRAFT)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([employeeId, startDate, endDate])
+  @@map("contracts")
+}
+
+model WorkingSchedule {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  type        ScheduleType    @default(STANDARD)
+  weeklyHours Float           // Automatically calculated from daily shifts
+  status      String          @default("Active")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  dailyShifts DailySchedule[]
+  employees   Employee[]
+
+  @@map("working_schedules")
+}
+
+model DailySchedule {
+  id           String          @id @default(uuid())
+  scheduleId   String
+  schedule     WorkingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int             // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  dayName      String          // "Monday", "Tuesday", etc.
+  startTime    String          // "09:00"
+  endTime      String          // "18:00"
+  breakMinutes Int             // 60
+  isWorkingDay Boolean         @default(true)
+
+  @@unique([scheduleId, dayOfWeek])
+  @@map("daily_schedules")
+}
+
+model Attendance {
+  id          String           @id @default(uuid())
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime
+  checkIn     String           // "09:05"
+  checkOut    String           // "18:02"
+  workedHours Float            // 8.95
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model TimeOffType {
+  id                 String              @id @default(uuid())
+  name               String              @unique // "Annual Leave", "Sick Leave", etc.
+  unit               String              @default("Days") // "Days" or "Hours"
+  allocationRequired Boolean             @default(true)
+  approvalType       String              @default("Manager Approval")
+  payrollIntegration Boolean             @default(false)
+  status             String              @default("Active")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  requests           TimeOffRequest[]
+  allocations        TimeOffAllocation[]
+
+  @@map("time_off_types")
+}
+
+model TimeOffAllocation {
+  id            String      @id @default(uuid())
+  employeeId    String
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  timeOffTypeId String
+  timeOffType   TimeOffType @relation(fields: [timeOffTypeId], references: [id], onDelete: Cascade)
+  allocated     Float       // e.g. 24
+  taken         Float       @default(0) // e.g. 8
+  remaining     Float       // e.g. 16 (auto-calculated / updated on approval)
+  validityYear  Int         // e.g. 2026
+  status        String      @default("Approved")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([employeeId, timeOffTypeId, validityYear])
+  @@map("time_off_allocations")
+}
+
+model TimeOffRequest {
+  id            String        @id @default(uuid())
+  employeeId    String
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  timeOffTypeId String
+  timeOffType   TimeOffType   @relation(fields: [timeOffTypeId], references: [id])
+  startDate     DateTime
+  endDate       DateTime
+  duration      Float         // e.g. 3 (Days)
+  reason        String
+  status        TimeOffStatus @default(TO_APPROVE)
+  approvedById  String?
+  approvedBy    User?         @relation("ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("time_off_requests")
+}
+
+model SalaryStructure {
+  id        String       @id @default(uuid())
+  name      String       @unique // "Regular Salary", "Executive Salary"
+  status    String       @default("Active")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  contracts Contract[]
+  rules     SalaryRule[]
+  payruns   Payrun[]
+  payslips  Payslip[]
+
+  @@map("salary_structures")
+}
+
+model SalaryRule {
+  id              String          @id @default(uuid())
+  structureId     String
+  structure       SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  name            String          // "Basic", "HRA", "Transport", "PF", "Tax", "Net Salary"
+  code            String          // "BASIC", "HRA", "TRANS", "PF", "TAX", "NET"
+  category        RuleCategory
+  sequence        Int             // 10, 20, 30, 40, 50, 60
+  calculationType RuleCalcType    // FIXED, PERCENTAGE, FORMULA
+  value           String          // e.g. "0.60 * contract.wage", "0.40 * BASIC", "5000", "0.12 * BASIC"
+  condition       String?         // Optional condition string
+  status          String          @default("Active")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([structureId, code])
+  @@index([structureId, sequence])
+  @@map("salary_rules")
+}
+
+model Payrun {
+  id                String          @id @default(uuid())
+  salaryStructureId String
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id])
+  period            String          // "September 2026"
+  periodStartDate   DateTime
+  periodEndDate     DateTime
+  status            PayrunStatus    @default(DRAFT)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  payslips          Payslip[]
+
+  @@map("payruns")
+}
+
+model Payslip {
+  id                String          @id @default(uuid())
+  payrunId          String
+  payrun            Payrun          @relation(fields: [payrunId], references: [id], onDelete: Cascade)
+  employeeId        String
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  salaryStructureId String
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id])
+  period            String          // "September 2026"
+  workedDays        Float           // e.g. 22
+  grossSalary       Float           @default(0)
+  totalDeductions   Float           @default(0)
+  netSalary         Float           @default(0)
+  status            PayslipStatus   @default(DRAFT)
+  sentAt            DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  lines             PayslipLine[]
+
+  @@unique([payrunId, employeeId])
+  @@map("payslips")
+}
+
+model PayslipLine {
+  id        String       @id @default(uuid())
+  payslipId String
+  payslip   Payslip      @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  code      String       // "BASIC", "HRA", "TRANS", "PF", "TAX"
+  name      String       // "Basic Salary", "HRA"
+  category  RuleCategory // BASIC, ALLOWANCE, DEDUCTION, NET
+  sequence  Int
+  amount    Float
+  createdAt DateTime     @default(now())
+
+  @@map("payslip_lines")
+}
