@@ -119,7 +119,6 @@ export function AttendanceList() {
       employeeId: user!.employeeId!,
       date: todayIso(),
       checkIn: nowTime(),
-      checkOut: '',
       status: 'PRESENT'
     })
 
