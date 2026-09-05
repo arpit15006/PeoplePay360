@@ -8,6 +8,9 @@ import ContractForm from './components/contracts/ContractForm';
 import SchedulesList from './components/schedules/SchedulesList';
 import ScheduleForm from './components/schedules/ScheduleForm';
 import AttendanceList from './components/attendance/AttendanceList';
+import TimeOffRequests from './components/timeoff/TimeOffRequests';
+import TimeOffAllocations from './components/timeoff/TimeOffAllocations';
+import TimeOffTypes from './components/timeoff/TimeOffTypes';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -105,9 +108,30 @@ export default function App() {
 
                 {/* Time Off */}
                 <Route path="/timeoff" element={<Navigate to="/timeoff/requests" replace />} />
-                <Route path="/timeoff/requests" element={soon('Time Off Requests', '/timeoff/requests')} />
-                <Route path="/timeoff/allocations" element={soon('Time Off Allocations', '/timeoff/allocations')} />
-                <Route path="/timeoff/types" element={soon('Time Off Types', '/timeoff/types')} />
+                <Route
+                  path="/timeoff/requests"
+                  element={
+                    <ProtectedRoute>
+                      <TimeOffRequests />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/timeoff/allocations"
+                  element={
+                    <ProtectedRoute>
+                      <TimeOffAllocations />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/timeoff/types"
+                  element={
+                    <ProtectedRoute>
+                      <TimeOffTypes />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Payroll */}
                 <Route path="/payroll" element={<Navigate to="/payroll/payruns" replace />} />
