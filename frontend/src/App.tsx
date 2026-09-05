@@ -18,6 +18,7 @@ import PayrunWizard from './components/payroll/PayrunWizard';
 import PayrunDetail from './components/payroll/PayrunDetail';
 import PayslipList from './components/payroll/PayslipList';
 import PayslipDetail from './components/payroll/PayslipDetail';
+import PayrollDashboard from './components/dashboard/PayrollDashboard';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -200,7 +201,14 @@ export default function App() {
                 />
 
                 {/* Payroll Dashboard */}
-                <Route path="/dashboard" element={soon('Payroll Dashboard', '/dashboard', DASHBOARD_ROLES)} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute allow={DASHBOARD_ROLES}>
+                      <PayrollDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route path="*" element={<Navigate to="/employees" replace />} />
               </Routes>
