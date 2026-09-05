@@ -7,6 +7,7 @@ import ContractsList from './components/contracts/ContractsList';
 import ContractForm from './components/contracts/ContractForm';
 import SchedulesList from './components/schedules/SchedulesList';
 import ScheduleForm from './components/schedules/ScheduleForm';
+import AttendanceList from './components/attendance/AttendanceList';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -92,7 +93,14 @@ export default function App() {
                 />
 
                 {/* Attendance */}
-                <Route path="/attendance" element={soon('Attendance', '/attendance')} />
+                <Route
+                  path="/attendance"
+                  element={
+                    <ProtectedRoute>
+                      <AttendanceList />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/attendance/:id" element={soon('Attendance Form', '/attendance/:id')} />
 
                 {/* Time Off */}

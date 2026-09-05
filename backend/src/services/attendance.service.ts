@@ -162,19 +162,32 @@ export class AttendanceService {
     const existing = await prisma.attendance.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('Attendance record');
 
-    const isHrOrAdmin = ['HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN'].includes(user.role);
+    // Manual correction is an authorised action. HR Payroll User is included
+    // because the permission matrix grants them CRUD on attendance.
+    const canCorrect = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'].includes(
+      user.role
+    );
 
-    // If standard employee, can only update checkOut on their own record
-    if (!isHrOrAdmin) {
+    // A standard employee may only close out their own open record. They cannot
+    // rewrite a check-in, overwrite a check-out that is already recorded, or
+    // change the status: the PRD states an employee cannot edit past check-in
+    // and check-out timestamps.
+    if (!canCorrect) {
       if (existing.employeeId !== user.employeeId) {
         throw new ForbiddenError('You can only update your own attendance record');
       }
       if (input.status && input.status !== existing.status) {
-        throw new ForbiddenError('Only HR Managers or Admins can manually correct attendance status');
+        throw new ForbiddenError('Only authorised HR users can manually correct attendance status');
+      }
+      if (input.checkIn && input.checkIn !== existing.checkIn) {
+        throw new ForbiddenError('Only authorised HR users can correct a check-in time');
+      }
+      if (input.checkOut && existing.checkOut) {
+        throw new ForbiddenError('Only authorised HR users can correct a recorded check-out time');
       }
     }
 
-    const checkIn = input.checkIn || existing.checkIn;
+    const checkIn = canCorrect ? input.checkIn || existing.checkIn : existing.checkIn;
     const checkOut = input.checkOut !== undefined ? (input.checkOut || existing.checkOut) : existing.checkOut;
     const workedHours = calculateWorkedHours(checkIn, checkOut);
 
