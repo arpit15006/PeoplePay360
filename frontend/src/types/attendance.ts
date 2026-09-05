@@ -7,6 +7,10 @@ export interface AttendanceRow {
   checkIn: string;
   checkOut: string;
   workedHours: number;
+  /** Hours beyond the scheduled day, derived by the server. */
+  overtimeHours: number;
+  /** True when an authorised user corrected the record. */
+  manuallyEdited: boolean;
   status: AttendanceStatus;
   notes: string | null;
   employee: { id: string; name: string; employeeCode: string } | null;

@@ -216,6 +216,7 @@ export function AttendanceList() {
                   <TableHead>Check In</TableHead>
                   <TableHead>Check Out</TableHead>
                   <TableHead className='text-right'>Worked Hours</TableHead>
+                  <TableHead className='text-right'>Overtime</TableHead>
                   <TableHead>Status</TableHead>
                   {canCorrect && <TableHead className='w-10' />}
                 </TableRow>
@@ -223,7 +224,7 @@ export function AttendanceList() {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canCorrect ? 7 : 6} className='h-24 text-center'>
+                    <TableCell colSpan={canCorrect ? 8 : 7} className='h-24 text-center'>
                       No attendance records match the current filters.
                     </TableCell>
                   </TableRow>
@@ -246,10 +247,24 @@ export function AttendanceList() {
                       <TableCell className='text-right tabular-nums'>
                         {formatWorkedHours(record.workedHours)}
                       </TableCell>
+                      <TableCell className='text-muted-foreground text-right tabular-nums'>
+                        {record.overtimeHours > 0 ? formatWorkedHours(record.overtimeHours) : '—'}
+                      </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_CLASSES[record.status]}>
-                          {ATTENDANCE_STATUS_LABELS[record.status]}
-                        </Badge>
+                        <div className='flex items-center gap-2'>
+                          <Badge className={STATUS_CLASSES[record.status]}>
+                            {ATTENDANCE_STATUS_LABELS[record.status]}
+                          </Badge>
+                          {record.manuallyEdited && (
+                            <Badge
+                              variant='secondary'
+                              className='text-muted-foreground rounded-md text-[10px] font-medium'
+                              title='Corrected by an authorised user'
+                            >
+                              edited
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       {canCorrect && (
                         <TableCell>
