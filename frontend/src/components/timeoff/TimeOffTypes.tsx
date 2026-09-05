@@ -44,7 +44,7 @@ const YES_NO = (value: boolean) => (
     className={
       value
         ? 'border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400'
-        : 'border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400'
+        : 'border-none bg-red-600/10 text-red-600 dark:bg-red-400/10 dark:text-red-400'
     }
   >
     {value ? 'Yes' : 'No'}

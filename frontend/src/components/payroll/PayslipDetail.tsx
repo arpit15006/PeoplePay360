@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { IconArrowLeft, IconFileTypePdf } from '@tabler/icons-react'
 
 import { usePayslip } from '@/hooks/usePayruns'
-import { PAYSLIP_STATUS_LABELS, money } from '@/types/payrun'
+import { PAYSLIP_STATUS_CLASSES, PAYSLIP_STATUS_LABELS, money } from '@/types/payrun'
 
 const Meta = ({ label, value }: { label: string; value: string }) => (
   <div className='space-y-1'>
@@ -75,7 +75,7 @@ export function PayslipDetail() {
               <h1 className='text-foreground text-2xl font-semibold tracking-tight'>
                 {payslip.employee?.name}
               </h1>
-              <Badge className='border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400'>
+              <Badge className={PAYSLIP_STATUS_CLASSES[payslip.status]}>
                 {PAYSLIP_STATUS_LABELS[payslip.status]}
               </Badge>
             </div>

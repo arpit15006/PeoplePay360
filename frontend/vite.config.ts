@@ -8,9 +8,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   // The API port differs per machine — macOS reserves 5000 for the AirPlay
-  // receiver, so it is commonly run on 5001 there. Set VITE_BACKEND_URL in
-  // frontend/.env rather than editing this file.
-  const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:5000';
+  // receiver, so it is run on 5001. Set VITE_BACKEND_URL in
+  // frontend/.env to override.
+  const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:5001';
 
   return {
     plugins: [react(), tailwindcss()],

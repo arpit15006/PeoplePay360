@@ -58,6 +58,13 @@ export const PAYSLIP_STATUS_LABELS: Record<PayslipStatus, string> = {
   DRAFT: 'Draft', CONFIRMED: 'Confirmed', PAID: 'Paid', SENT: 'Sent',
 };
 
+export const PAYSLIP_STATUS_CLASSES: Record<PayslipStatus, string> = {
+  DRAFT: 'border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400',
+  CONFIRMED: 'border-none bg-amber-600/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400',
+  PAID: 'border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400',
+  SENT: 'border-none bg-sky-600/10 text-sky-600 dark:bg-sky-400/10 dark:text-sky-400',
+};
+
 export const PAYRUN_STATUS_CLASSES: Record<PayrunStatus, string> = {
   DRAFT: 'border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400',
   COMPUTED: 'border-none bg-sky-600/10 text-sky-600 dark:bg-sky-400/10 dark:text-sky-400',
