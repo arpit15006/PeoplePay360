@@ -3,7 +3,7 @@ import { ShieldCheck, ChevronDown } from 'lucide-react'
 import LoginForm from '@/components/shadcn-studio/blocks/login-page-04/login-form'
 
 const Login = () => {
-  const [language, setLanguage] = useState('English')
+  const [language] = useState('English')
 
   return (
     <div className="relative min-h-screen w-full bg-[#f8fafc] text-slate-900 flex flex-col justify-between overflow-x-hidden">

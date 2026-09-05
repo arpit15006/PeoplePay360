@@ -19,13 +19,13 @@ router.use(authenticate);
 // List & view payruns (Payroll users, HR, Admin)
 router.get(
   '/',
-  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.HR_MANAGER, Role.ADMIN),
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   listPayruns
 );
 
 router.get(
   '/:id',
-  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.HR_MANAGER, Role.ADMIN),
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   getPayrun
 );
 

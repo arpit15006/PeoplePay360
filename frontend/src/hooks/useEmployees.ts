@@ -1,25 +1,47 @@
 import { useQuery } from '@tanstack/react-query';
-import { MOCK_EMPLOYEES } from '@/data/employees.mock';
-import type { EmployeeRow } from '@/types/employee';
+import { api } from '@/api/client';
+import type { EmployeeRow, EmployeeStatus, EmployeeType } from '@/types/employee';
 
-/**
- * PRD Screen 2 data source.
- *
- * The employees API does not exist yet (employees.routes.ts / .controller.ts /
- * employee.service.ts are still `export {}`), so this resolves the seed-derived
- * mock. When GET /api/employees lands, replace the queryFn body with:
- *
- *   queryFn: () => api.get<EmployeeRow[]>('/employees')
- *
- * and delete src/data/employees.mock.ts. Nothing else in the screen changes.
- */
+/** Raw shape returned by GET /api/employees. */
+interface ApiEmployee {
+  id: string;
+  employeeCode: string;
+  name: string;
+  email: string;
+  jobPosition: string;
+  employeeType: EmployeeType;
+  status: EmployeeStatus;
+  department: { id: string; name: string } | null;
+  manager: { id: string; name: string } | null;
+  workingSchedule: { id: string; name: string; weeklyHours: number } | null;
+}
+
+interface EmployeesResponse {
+  success: boolean;
+  count: number;
+  data: ApiEmployee[];
+}
+
+const toRow = (employee: ApiEmployee): EmployeeRow => ({
+  id: employee.id,
+  employeeCode: employee.employeeCode,
+  name: employee.name,
+  email: employee.email,
+  department: employee.department?.name ?? 'Unassigned',
+  jobPosition: employee.jobPosition,
+  manager: employee.manager?.name ?? null,
+  workingSchedule: employee.workingSchedule?.name ?? null,
+  employeeType: employee.employeeType,
+  status: employee.status,
+});
+
+/** PRD Screen 2 data source — live from the employees API. */
 export function useEmployees() {
   return useQuery<EmployeeRow[]>({
     queryKey: ['employees'],
     queryFn: async () => {
-      // Small delay so the loading skeleton is actually exercised in dev.
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return MOCK_EMPLOYEES;
+      const response = await api.get<EmployeesResponse>('/employees');
+      return (response.data ?? []).map(toRow);
     },
   });
 }

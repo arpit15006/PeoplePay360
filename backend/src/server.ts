@@ -20,8 +20,6 @@ import payrunsRoutes from './routes/payruns.routes';
 import payslipsRoutes from './routes/payslips.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-import authRouter from './routes/auth.routes';
-
 const app = express();
 const server = http.createServer(app);
 
@@ -37,9 +35,6 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
-
-// Routes
-app.use('/api/auth', authRouter);
 
 // Base Health Check
 app.get('/api/health', (_req: Request, res: Response) => {

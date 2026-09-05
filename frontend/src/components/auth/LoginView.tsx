@@ -1,16 +1,23 @@
+import { Navigate } from 'react-router-dom';
+
 import Login from '@/components/shadcn-studio/blocks/login-page-04/login-page-04';
+import { useAuth } from '@/context/AuthContext';
+import { roleLandingPath } from '@/types/user';
 
 /**
- * Screen 1 — Login route. Renders the Shadcn Studio login-page-04 block
- * verbatim, outside <AppLayout>.
- *
- * NOTE: the block's form is presentational only (its onSubmit just calls
- * preventDefault), so signing in is currently a no-op. The working auth layer
- * is still in place and unused — see context/AuthContext.tsx (login/logout/me),
- * api/auth.ts and the backend at POST /api/auth/login — ready to be wired back
- * into the block's form when you want real authentication again.
+ * Screen 1 — Login route. Renders the login-page-04 block full-screen, outside
+ * <AppLayout>. The block's form authenticates through useAuth() -> POST
+ * /api/auth/login and navigates on success.
  */
 export function LoginView() {
+  const { user, isBootstrapping } = useAuth();
+
+  // Wait for the cookie session probe before deciding what to render.
+  if (isBootstrapping) return null;
+
+  // Already signed in — skip the login screen.
+  if (user) return <Navigate to={roleLandingPath(user)} replace />;
+
   return <Login />;
 }
 
