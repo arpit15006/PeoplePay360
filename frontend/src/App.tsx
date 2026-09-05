@@ -83,7 +83,7 @@ export default function App() {
                 <Route
                   path="/departments"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute allow={HR_WRITE}>
                       <DepartmentsList />
                     </ProtectedRoute>
                   }
@@ -121,7 +121,7 @@ export default function App() {
                 <Route
                   path="/schedules"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute allow={HR_WRITE}>
                       <SchedulesList />
                     </ProtectedRoute>
                   }
@@ -129,7 +129,7 @@ export default function App() {
                 <Route
                   path="/schedules/:id"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute allow={HR_WRITE}>
                       <ScheduleForm />
                     </ProtectedRoute>
                   }
@@ -167,7 +167,7 @@ export default function App() {
                 <Route
                   path="/timeoff/types"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute allow={HR_WRITE}>
                       <TimeOffTypes />
                     </ProtectedRoute>
                   }

@@ -48,7 +48,14 @@ import { initialsOf } from '@/types/employee'
 
 const PAYROLL: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 const PAYSLIP: Role[] = ['EMPLOYEE', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
-const NOT_EMPLOYEE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+/**
+ * Everyone who administers HR. An employee has no HR administration access, so
+ * the configuration screens — departments, working schedules and leave policy —
+ * are not offered to them. Their own records still are.
+ */
+const HR_STAFF: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+
+const NOT_EMPLOYEE: Role[] = HR_STAFF
 
 type MenuSubItem = { label: string; href: string; allow?: Role[] }
 
@@ -65,18 +72,19 @@ const ADMIN_ONLY: Role[] = ['ADMIN']
 const menuItems: MenuItem[] = [
   { icon: <IconUsers />, label: 'Employees', href: '/employees' },
   { icon: <IconFileDescription />, label: 'Contracts', href: '/contracts' },
-  { icon: <IconBuilding />, label: 'Departments', href: '/departments' },
+  { icon: <IconBuilding />, label: 'Departments', href: '/departments', allow: HR_STAFF },
   { icon: <IconClock />, label: 'Attendance', href: '/attendance' },
   // Not in the PRD's six-item nav tree, but Screen 5 has its own URL and would
   // otherwise be unreachable. Move it if you want the tree kept literal.
-  { icon: <IconCalendarClock />, label: 'Working Schedules', href: '/schedules' },
+  { icon: <IconCalendarClock />, label: 'Working Schedules', href: '/schedules', allow: HR_STAFF },
   {
     icon: <IconCalendarTime />,
     label: 'Time Off',
     items: [
       { label: 'Requests', href: '/timeoff/requests' },
       { label: 'Allocations', href: '/timeoff/allocations' },
-      { label: 'Time Off Types', href: '/timeoff/types' }
+      // Leave policy is configuration, not something an employee sets.
+      { label: 'Time Off Types', href: '/timeoff/types', allow: HR_STAFF }
     ]
   },
   {
