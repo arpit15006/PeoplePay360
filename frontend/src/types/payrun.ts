@@ -61,7 +61,7 @@ export const PAYSLIP_STATUS_LABELS: Record<PayslipStatus, string> = {
 export const PAYRUN_STATUS_CLASSES: Record<PayrunStatus, string> = {
   DRAFT: 'border-none bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400',
   COMPUTED: 'border-none bg-sky-600/10 text-sky-600 dark:bg-sky-400/10 dark:text-sky-400',
-  VALIDATED: 'border-none bg-violet-600/10 text-violet-600 dark:bg-violet-400/10 dark:text-violet-400',
+  VALIDATED: 'border-none bg-blue-600/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400',
   PAID: 'border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400',
   SENT: 'border-none bg-emerald-600/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400',
 };

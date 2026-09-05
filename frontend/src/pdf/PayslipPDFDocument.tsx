@@ -21,11 +21,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     borderBottomWidth: 2,
-    borderBottomColor: '#4f46e5',
+    borderBottomColor: '#144f84',
     paddingBottom: 10,
     marginBottom: 16
   },
-  brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#4f46e5' },
+  brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#144f84' },
   brandSub: { fontSize: 8, color: '#64748b', marginTop: 2 },
   docTitle: { fontSize: 13, fontFamily: 'Helvetica-Bold' },
   docSub: { fontSize: 9, color: '#64748b', marginTop: 2, textAlign: 'right' },
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   netBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#144f84',
     color: '#ffffff',
     padding: 10,
     marginTop: 14

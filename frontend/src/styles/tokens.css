@@ -1,12 +1,12 @@
 :root {
   /* Brand Palette */
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-light: #eef2ff;
-  --primary-glow: rgba(79, 70, 229, 0.15);
+  --primary: #144f84;
+  --primary-hover: #023f6f;
+  --primary-light: #eaf4fe;
+  --primary-glow: rgba(20, 79, 132, 0.15);
 
-  --accent: #8b5cf6;
-  --accent-light: #f5f3ff;
+  --accent: #336a88;
+  --accent-light: #ebf5fc;
 
   /* Status Colors */
   --success: #10b981;
@@ -35,7 +35,7 @@
 
   --border-color: #e2e8f0;
   --border-light: #f1f5f9;
-  --border-focus: #6366f1;
+  --border-focus: #3a75af;
 
   --text-primary: #0f172a;
   --text-secondary: #475569;

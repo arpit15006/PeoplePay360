@@ -55,7 +55,7 @@ export function ComingSoonPlaceholder({ pageName, routePath }: ComingSoonProps) 
           to="/employees"
           style={{
             display: 'inline-block',
-            backgroundColor: '#2563eb',
+            backgroundColor: '#144f84',
             color: '#ffffff',
             padding: '0.5rem 1.25rem',
             borderRadius: '8px',

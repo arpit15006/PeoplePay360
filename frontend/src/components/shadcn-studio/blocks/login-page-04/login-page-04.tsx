@@ -47,17 +47,17 @@ const Login = () => {
           <div className="relative z-10 flex items-center gap-3">
             {/* People icon SVG */}
             <svg width="44" height="40" viewBox="0 0 44 40" fill="none">
-              <circle cx="22" cy="10" r="5.5" fill="#2563eb" />
-              <circle cx="12" cy="16" r="4.5" fill="#3b82f6" />
-              <circle cx="32" cy="16" r="4.5" fill="#3b82f6" />
-              <path d="M6 36 C6 28, 12 23, 22 23 C32 23, 38 28, 38 36" stroke="#2563eb" strokeWidth="3.5" fill="none" strokeLinecap="round" />
-              <path d="M0 38 C0 32, 5 28, 12 28" stroke="#3b82f6" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-              <path d="M44 38 C44 32, 39 28, 32 28" stroke="#3b82f6" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              <circle cx="22" cy="10" r="5.5" fill="#144f84" />
+              <circle cx="12" cy="16" r="4.5" fill="#3a75af" />
+              <circle cx="32" cy="16" r="4.5" fill="#3a75af" />
+              <path d="M6 36 C6 28, 12 23, 22 23 C32 23, 38 28, 38 36" stroke="#144f84" strokeWidth="3.5" fill="none" strokeLinecap="round" />
+              <path d="M0 38 C0 32, 5 28, 12 28" stroke="#3a75af" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              <path d="M44 38 C44 32, 39 28, 32 28" stroke="#3a75af" strokeWidth="2.5" fill="none" strokeLinecap="round" />
             </svg>
             <div>
               <div className="flex items-baseline">
                 <span className="text-[22px] font-bold text-[#1e293b] tracking-tight">PeoplePay</span>
-                <span className="text-[22px] font-bold text-[#2563eb] tracking-tight">360</span>
+                <span className="text-[22px] font-bold text-[#144f84] tracking-tight">360</span>
               </div>
               <p className="text-[11px] text-slate-500 -mt-0.5 tracking-wide">Built for People. Powered by Odoo.</p>
             </div>
@@ -74,7 +74,7 @@ const Login = () => {
             <h1 className="leading-[1.08]">
               <span className="block text-[clamp(2.4rem,4.5vw,3.6rem)] font-extrabold text-[#1a2236]">People First.</span>
               <span className="block text-[clamp(2.4rem,4.5vw,3.6rem)] font-extrabold text-[#1a2236]">Simpler HR.</span>
-              <span className="block text-[clamp(2.4rem,4.5vw,3.6rem)] font-extrabold text-[#2563eb]">Real Impact.</span>
+              <span className="block text-[clamp(2.4rem,4.5vw,3.6rem)] font-extrabold text-[#144f84]">Real Impact.</span>
             </h1>
 
             {/* Description */}
@@ -84,7 +84,7 @@ const Login = () => {
 
             {/* Tagline bar */}
             <div className="mt-8 flex items-center gap-3">
-              <div className="w-8 h-[3px] rounded-full bg-[#2563eb]" />
+              <div className="w-8 h-[3px] rounded-full bg-[#144f84]" />
               <span className="text-[10.5px] font-semibold tracking-[0.22em] text-slate-500 uppercase">
                 Organize &nbsp;•&nbsp; Automate &nbsp;•&nbsp; Empower
               </span>
@@ -125,7 +125,7 @@ const Login = () => {
               </p>
               {/* Blue underline accent */}
               <svg className="mt-0.5 ml-auto" width="70" height="8" viewBox="0 0 70 8">
-                <path d="M2 5 C15 2, 35 2, 68 5" stroke="#2563eb" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                <path d="M2 5 C15 2, 35 2, 68 5" stroke="#144f84" strokeWidth="2.5" fill="none" strokeLinecap="round" />
               </svg>
             </div>
 

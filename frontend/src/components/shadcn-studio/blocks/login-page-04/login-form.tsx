@@ -99,7 +99,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </div>
         </Field>
@@ -120,7 +120,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-10 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-10 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             <button
               type="button"
@@ -140,7 +140,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
               id="rememberMe"
               checked={rememberMe}
               onCheckedChange={(checked) => setRememberMe(!!checked)}
-              className="border-slate-300 data-checked:bg-blue-600 data-checked:border-blue-600"
+              className="border-slate-300 data-checked:bg-primary data-checked:border-primary"
             />
             <label
               htmlFor="rememberMe"
@@ -155,7 +155,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
               e.preventDefault()
               alert('Password reset link will be sent to your registered corporate email.')
             }}
-            className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+            className="text-xs font-medium text-primary hover:underline"
           >
             Forgot password?
           </a>
@@ -166,7 +166,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
           >
             <span>{loading ? 'Signing in…' : 'Sign in'}</span>
             {!loading && <ArrowRight className="size-4" />}
@@ -188,7 +188,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
                 title={`${account.email} → ${account.lands}`}
                 className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors disabled:opacity-50 ${
                   email === account.email
-                    ? 'border-blue-600 bg-blue-50'
+                    ? 'border-primary bg-primary/5'
                     : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
                 } ${account.role === 'EMPLOYEE' ? 'col-span-2' : ''}`}
               >
