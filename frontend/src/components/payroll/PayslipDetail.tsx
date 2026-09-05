@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { IconArrowLeft, IconFileTypePdf } from '@tabler/icons-react'
 
 import { usePayslip } from '@/hooks/usePayruns'
-import { downloadPayslipPdf } from '@/services/pdfService'
 import { PAYSLIP_STATUS_LABELS, money } from '@/types/payrun'
 
 const Meta = ({ label, value }: { label: string; value: string }) => (
@@ -50,6 +49,9 @@ export function PayslipDetail() {
   const print = async () => {
     setPrinting(true)
     try {
+      // The PDF renderer is over a megabyte, and only this action needs it, so
+      // it is fetched on demand rather than shipped with the initial bundle.
+      const { downloadPayslipPdf } = await import('@/services/pdfService')
       await downloadPayslipPdf(payslip)
       toast.success('Payslip PDF downloaded')
     } catch (err) {

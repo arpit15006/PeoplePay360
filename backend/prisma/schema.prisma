@@ -2,6 +2,8 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Fetch relations with a single SQL join instead of one round-trip each.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -157,6 +159,10 @@ model Employee {
   timeOffRequests TimeOffRequest[]
   timeOffAllocations TimeOffAllocation[]
   payslips        Payslip[]
+  @@index([departmentId])
+  @@index([scheduleId])
+  @@index([managerId])
+
 
   @@map("employees")
 }
@@ -178,6 +184,10 @@ model Contract {
   updatedAt         DateTime        @updatedAt
 
   @@index([employeeId, startDate, endDate])
+  @@index([departmentId])
+  @@index([salaryStructureId])
+  @@index([status])
+
   @@map("contracts")
 }
 
@@ -231,6 +241,8 @@ model Attendance {
   updatedAt   DateTime         @updatedAt
 
   @@unique([employeeId, date])
+  @@index([date])
+
   @@map("attendances")
 }
 
@@ -266,6 +278,8 @@ model TimeOffAllocation {
   updatedAt     DateTime    @updatedAt
 
   @@unique([employeeId, timeOffTypeId, validityYear])
+  @@index([timeOffTypeId])
+
   @@map("time_off_allocations")
 }
 
@@ -284,6 +298,10 @@ model TimeOffRequest {
   approvedBy    User?         @relation("ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  @@index([employeeId, status])
+  @@index([timeOffTypeId])
+  @@index([startDate, endDate])
+
 
   @@map("time_off_requests")
 }
@@ -335,6 +353,9 @@ model Payrun {
   updatedAt         DateTime        @updatedAt
 
   payslips          Payslip[]
+  @@index([salaryStructureId])
+  @@index([period])
+
 
   @@map("payruns")
 }
@@ -360,6 +381,10 @@ model Payslip {
   lines             PayslipLine[]
 
   @@unique([payrunId, employeeId])
+  @@index([employeeId])
+  @@index([period])
+  @@index([salaryStructureId])
+
   @@map("payslips")
 }
 
@@ -373,6 +398,8 @@ model PayslipLine {
   sequence  Int
   amount    Float
   createdAt DateTime     @default(now())
+  @@index([payslipId])
+
 
   @@map("payslip_lines")
 }

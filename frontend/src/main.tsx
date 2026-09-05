@@ -19,7 +19,14 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 30, // 30 seconds
+      // Socket events invalidate the queries a change can affect, so freshness
+      // no longer depends on a short stale window. Holding data longer means
+      // moving between screens reads the cache instead of refetching.
+      staleTime: 1000 * 60 * 2,
+      gcTime: 1000 * 60 * 10,
+      // The default three retries with backoff makes a genuine failure take
+      // several seconds to surface; one retry covers a blip without the wait.
+      retry: 1,
     },
   },
 });

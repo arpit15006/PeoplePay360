@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
 import { authApi } from '@/api/auth';
 import type { AuthUser } from '@/types/user';
 
@@ -14,6 +16,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
@@ -38,21 +41,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    // The server sets an httpOnly cookie; the token in the response body is
-    // deliberately not persisted anywhere JavaScript can read it.
-    const res = await authApi.login({ email, password });
-    setUser(res.user);
-    return res.user;
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      // The server sets an httpOnly cookie; the token in the response body is
+      // deliberately not persisted anywhere JavaScript can read it.
+      const res = await authApi.login({ email, password });
+
+      // Signing in and out are client-side transitions, so the page is never
+      // reloaded and the query cache outlives the session that filled it.
+      // Without this, the next person to sign in on the same tab is served the
+      // previous user's rows from cache until the refetch lands — an employee
+      // briefly seeing the whole company's contracts. Cleared on the way in as
+      // well as out, because a session can end without anyone pressing Log out.
+      queryClient.clear();
+
+      setUser(res.user);
+      return res.user;
+    },
+    [queryClient]
+  );
 
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
     } finally {
+      queryClient.clear();
       setUser(null);
     }
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({ user, isBootstrapping, login, logout }),

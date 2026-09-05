@@ -20,6 +20,21 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // One 2.5MB bundle meant the whole app had to parse before the login
+          // screen could paint. Splitting the heavy, rarely-changing libraries
+          // lets the browser cache them apart from application code.
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-router-dom'],
+            charts: ['recharts'],
+            pdf: ['@react-pdf/renderer'],
+            query: ['@tanstack/react-query', '@tanstack/react-table'],
+          },
+        },
+      },
+    },
     server: {
       port: 5174,
       host: true,
