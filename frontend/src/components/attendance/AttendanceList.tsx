@@ -18,7 +18,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
@@ -65,6 +67,85 @@ const todayIso = () => {
 
 const nowTime = () =>
   new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
+
+function TimeSelect({
+  value,
+  onChange,
+  allowClear
+}: {
+  value: string
+  onChange: (val: string) => void
+  allowClear?: boolean
+}) {
+  const parts = value ? value.trim().split(':') : []
+  const hour = parts[0] ? parts[0].padStart(2, '0') : ''
+  const minute = parts[1] ? parts[1].padStart(2, '0') : ''
+
+  const handleHourChange = (newHour: string) => {
+    const m = minute || '00'
+    onChange(`${newHour}:${m}`)
+  }
+
+  const handleMinuteChange = (newMinute: string) => {
+    const h = hour || '09'
+    onChange(`${h}:${newMinute}`)
+  }
+
+  return (
+    <div className='flex items-center gap-1.5'>
+      <Select value={hour || undefined} onValueChange={handleHourChange}>
+        <SelectTrigger className='w-full font-mono text-center'>
+          <SelectValue placeholder='HH' />
+        </SelectTrigger>
+        <SelectContent position='popper' className='max-h-56 min-w-[5.5rem]'>
+          <SelectGroup>
+            <SelectLabel>Hour</SelectLabel>
+            {HOURS.map(h => (
+              <SelectItem key={h} value={h} className='font-mono'>
+                {h}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <span className='text-muted-foreground font-semibold'>:</span>
+
+      <Select value={minute || undefined} onValueChange={handleMinuteChange}>
+        <SelectTrigger className='w-full font-mono text-center'>
+          <SelectValue placeholder='MM' />
+        </SelectTrigger>
+        <SelectContent position='popper' className='max-h-56 min-w-[5.5rem]'>
+          <SelectGroup>
+            <SelectLabel>Minute</SelectLabel>
+            {MINUTES.map(m => (
+              <SelectItem key={m} value={m} className='font-mono'>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      {allowClear && value ? (
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon-sm'
+          onClick={() => onChange('')}
+          className='text-muted-foreground hover:text-foreground shrink-0'
+          title='Clear time'
+          aria-label='Clear time'
+        >
+          <IconX className='size-3.5' />
+        </Button>
+      ) : null}
+    </div>
+  )
+}
 
 /** PRD Screen 6 — Attendance list, check in/out, and manual correction. */
 export function AttendanceList() {
@@ -330,21 +411,30 @@ export function AttendanceList() {
 
           <div className='grid grid-cols-2 gap-4'>
             <div className='space-y-1.5'>
-              <Label htmlFor='checkIn'>Check In</Label>
-              <Input
-                id='checkIn'
-                type='time'
+              <div className='flex items-center justify-between'>
+                <Label>Check In</Label>
+                {draft.checkIn && (
+                  <span className='text-muted-foreground font-mono text-xs'>{draft.checkIn}</span>
+                )}
+              </div>
+              <TimeSelect
                 value={draft.checkIn}
-                onChange={e => setDraft({ ...draft, checkIn: e.target.value })}
+                onChange={val => setDraft({ ...draft, checkIn: val })}
               />
             </div>
             <div className='space-y-1.5'>
-              <Label htmlFor='checkOut'>Check Out</Label>
-              <Input
-                id='checkOut'
-                type='time'
+              <div className='flex items-center justify-between'>
+                <Label>Check Out</Label>
+                {draft.checkOut ? (
+                  <span className='text-muted-foreground font-mono text-xs'>{draft.checkOut}</span>
+                ) : (
+                  <span className='text-muted-foreground text-xs'>Not set</span>
+                )}
+              </div>
+              <TimeSelect
                 value={draft.checkOut}
-                onChange={e => setDraft({ ...draft, checkOut: e.target.value })}
+                onChange={val => setDraft({ ...draft, checkOut: val })}
+                allowClear
               />
             </div>
             <div className='space-y-1.5'>
