@@ -28,6 +28,9 @@ import type { Role } from './types/user';
 
 const PAYROLL_ROLES: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'];
 const PAYSLIP_ROLES: Role[] = ['EMPLOYEE', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'];
+/** Roles the permission matrix grants CRUD over HR master data. */
+const HR_WRITE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'];
+
 const DASHBOARD_ROLES: Role[] = [
   'HR_MANAGER',
   'HR_PAYROLL_USER',
@@ -59,7 +62,14 @@ export default function App() {
 
                 {/* Employees */}
                 <Route path="/employees" element={<EmployeesDashboard />} />
-                <Route path="/employees/new" element={soon('New Employee', '/employees/new')} />
+                <Route
+                  path="/employees/new"
+                  element={
+                    <ProtectedRoute allow={HR_WRITE}>
+                      <EmployeeForm mode="create" />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/employees/:id"
                   element={

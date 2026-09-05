@@ -19,9 +19,29 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { IconArrowRight } from '@tabler/icons-react'
+import { IconArrowRight, IconPlus, IconPencil } from '@tabler/icons-react'
 
-import { useSalaryStructures } from '@/hooks/useSalary'
+import { useSalaryStructures, useSaveStructureById } from '@/hooks/useSalary'
+import { useAuth } from '@/context/AuthContext'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { toast } from 'sonner'
+import type { Role } from '@/types/user'
 import {
   CATEGORY_CLASSES,
   RULE_CALC_LABELS,
@@ -36,7 +56,39 @@ import {
  * execution order, which is the order the payroll engine evaluates them in:
  * later rules reference earlier codes, e.g. HRA is 0.40 * BASIC.
  */
+/** Full CRUD on structures belongs to the Payroll Manager and Admin. */
+const CAN_MANAGE: Role[] = ['HR_PAYROLL_MANAGER', 'ADMIN']
+
 export function SalaryStructures() {
+  const { user } = useAuth()
+  const canManage = !!user && CAN_MANAGE.includes(user.role)
+  const saveStructure = useSaveStructureById()
+  const [editing, setEditing] = useState<SalaryStructure | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [draft, setDraft] = useState({ name: '', status: 'Active' })
+
+  const openCreate = () => {
+    setEditing(null)
+    setDraft({ name: '', status: 'Active' })
+    setDialogOpen(true)
+  }
+
+  const openEdit = (structure: SalaryStructure) => {
+    setEditing(structure)
+    setDraft({ name: structure.name, status: structure.status })
+    setDialogOpen(true)
+  }
+
+  const submit = async () => {
+    try {
+      await saveStructure.mutateAsync({ id: editing?.id, body: draft })
+      toast.success(editing ? `${draft.name} updated` : `${draft.name} created`)
+      setDialogOpen(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the structure')
+    }
+  }
+
   const navigate = useNavigate()
   const { data: structures = [], isLoading, isError, error } = useSalaryStructures()
   const [openIds, setOpenIds] = useState<string[]>([])
@@ -70,10 +122,18 @@ export function SalaryStructures() {
           </p>
         </div>
 
-        <Button variant='outline' onClick={() => navigate('/payroll/rules')}>
-          Manage Salary Rules
-          <IconArrowRight />
-        </Button>
+        <div className='flex flex-wrap gap-2'>
+          <Button variant='outline' onClick={() => navigate('/payroll/rules')}>
+            Manage Salary Rules
+            <IconArrowRight />
+          </Button>
+          {canManage && (
+            <Button onClick={openCreate}>
+              <IconPlus />
+              New Structure
+            </Button>
+          )}
+        </div>
       </div>
 
       <Accordion
@@ -100,6 +160,29 @@ export function SalaryStructures() {
                     <Badge className='border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400'>
                       {structure.status}
                     </Badge>
+                    {canManage && (
+                      // Inside the trigger, so the click must not also toggle
+                      // the accordion open.
+                      <span
+                        role='button'
+                        tabIndex={0}
+                        aria-label={`Edit ${structure.name}`}
+                        className='hover:bg-muted rounded-md p-1.5'
+                        onClick={e => {
+                          e.stopPropagation()
+                          openEdit(structure)
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            openEdit(structure)
+                          }
+                        }}
+                      >
+                        <IconPencil className='size-4' />
+                      </span>
+                    )}
                   </span>
                 </div>
               </AccordionTrigger>
@@ -156,6 +239,52 @@ export function SalaryStructures() {
           )
         })}
       </Accordion>
+
+      {/* Create / edit a structure — Payroll Manager and Admin only */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Structure' : 'New Salary Structure'}</DialogTitle>
+            <DialogDescription>
+              A structure is the container a payrun points at; its rules decide what each
+              payslip computes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='space-y-4'>
+            <div className='space-y-1.5'>
+              <Label htmlFor='structure-name'>Name</Label>
+              <Input
+                id='structure-name'
+                placeholder='e.g. Executive Salary'
+                value={draft.name}
+                onChange={e => setDraft({ ...draft, name: e.target.value })}
+              />
+            </div>
+            <div className='space-y-1.5'>
+              <Label htmlFor='structure-status'>Status</Label>
+              <Select value={draft.status} onValueChange={v => setDraft({ ...draft, status: v })}>
+                <SelectTrigger id='structure-status' className='w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='Active'>Active</SelectItem>
+                  <SelectItem value='Inactive'>Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={saveStructure.isPending || !draft.name.trim()}>
+              {saveStructure.isPending ? 'Saving…' : editing ? 'Save' : 'Create Structure'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardContent className='text-muted-foreground text-sm'>

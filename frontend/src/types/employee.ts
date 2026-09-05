@@ -82,3 +82,19 @@ export const initialsOf = (name: string): string =>
     .slice(0, 2)
     .map(part => part[0]?.toUpperCase() ?? '')
     .join('');
+
+/** Payload the backend requires to create an employee. */
+export interface EmployeeCreate {
+  name: string;
+  email: string;
+  phone: string;
+  departmentId: string;
+  jobPosition: string;
+  employeeType: EmployeeType;
+  status: EmployeeStatus;
+  scheduleId?: string | null;
+  managerId?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  ifscCode?: string | null;
+}

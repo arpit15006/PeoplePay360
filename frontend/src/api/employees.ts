@@ -1,5 +1,10 @@
 import { api } from './client';
-import type { EmployeeDetail, EmployeeRelatedCounts, EmployeeUpdate } from '@/types/employee';
+import type {
+  EmployeeCreate,
+  EmployeeDetail,
+  EmployeeRelatedCounts,
+  EmployeeUpdate
+} from '@/types/employee';
 
 interface Envelope<T> {
   success: boolean;
@@ -18,6 +23,11 @@ export const employeesApi = {
   /** Smart-button counts — PRD Screen 3 related records. */
   related: (id: string) =>
     api.get<Envelope<EmployeeRelatedCounts>>(`/employees/${id}/related`).then(r => r.data),
+
+  create: (body: EmployeeCreate) =>
+    api.post<Envelope<EmployeeDetail>>('/employees', body).then(r => r.data),
+
+  remove: (id: string) => api.del<{ success: boolean }>(`/employees/${id}`),
 
   update: (id: string, body: EmployeeUpdate) =>
     api.put<Envelope<EmployeeDetail>>(`/employees/${id}`, body).then(r => r.data),

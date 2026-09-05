@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,8 @@ import {
   useEmployee,
   useEmployeeRelated,
   useSchedules,
-  useUpdateEmployee
+  useUpdateEmployee,
+  useCreateEmployee
 } from '@/hooks/useEmployee'
 import { useEmployees } from '@/hooks/useEmployees'
 import {
@@ -38,7 +40,8 @@ import {
   initialsOf,
   type EmployeeStatus,
   type EmployeeType,
-  type EmployeeUpdate
+  type EmployeeUpdate,
+  type EmployeeCreate
 } from '@/types/employee'
 import type { Role } from '@/types/user'
 
@@ -56,20 +59,28 @@ const ReadField = ({ label, value }: { label: string; value: string }) => (
 )
 
 /** PRD Screen 3 — Employee Form and related-record smart buttons. */
-export function EmployeeForm() {
+export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const { data: employee, isLoading, isError, error } = useEmployee(id)
+  // A brand new record shares this form rather than duplicating every field.
+  // The create route is its own path, so it carries no :id param to read;
+  // the mode prop is what distinguishes it.
+  const isNew = mode === 'create' || id === 'new'
+  const { data: employee, isLoading, isError, error } = useEmployee(isNew ? undefined : id)
   const { data: counts } = useEmployeeRelated(id)
   const { data: departments = [] } = useDepartments()
   const { data: schedules = [] } = useSchedules()
   const { data: colleagues = [] } = useEmployees()
   const updateEmployee = useUpdateEmployee(id ?? '')
+  const createEmployee = useCreateEmployee()
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [draft, setDraft] = useState<EmployeeUpdate>({})
+  // A new record opens straight into edit mode; there is nothing to read yet.
+  const [isEditing, setIsEditing] = useState(isNew)
+  const [draft, setDraft] = useState<EmployeeUpdate>(
+    isNew ? { employeeType: 'FULL_TIME', status: 'ACTIVE' } : {}
+  )
 
   // Reset the draft whenever the record loads or editing is cancelled.
   useEffect(() => {
@@ -93,7 +104,25 @@ export function EmployeeForm() {
 
   const canEdit = !!user && CAN_EDIT.includes(user.role)
 
-  if (isLoading) {
+  // Name, email, phone, department and job position are required by the API.
+  const canCreate =
+    !!draft.name?.trim() &&
+    !!draft.email?.trim() &&
+    !!draft.phone?.trim() &&
+    !!draft.departmentId &&
+    !!draft.jobPosition?.trim()
+
+  const saveNew = async () => {
+    try {
+      const created = await createEmployee.mutateAsync(draft as EmployeeCreate)
+      toast.success(`${created.name} created`)
+      navigate(`/employees/${created.id}`, { replace: true })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not create the employee')
+    }
+  }
+
+  if (isLoading && !isNew) {
     return (
       <div className='space-y-6'>
         <Skeleton className='h-24 w-full' />
@@ -103,7 +132,7 @@ export function EmployeeForm() {
     )
   }
 
-  if (isError || !employee) {
+  if (!isNew && (isError || !employee)) {
     return (
       <div className='border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-6 text-sm'>
         Could not load this employee{error instanceof Error ? `: ${error.message}` : '.'}
@@ -111,7 +140,7 @@ export function EmployeeForm() {
     )
   }
 
-  const smartButtons = [
+  const smartButtons = employee ? [
     {
       label: 'Contracts',
       icon: IconFileDescription,
@@ -136,7 +165,7 @@ export function EmployeeForm() {
       count: counts?.timeOffAllocations,
       to: `/timeoff/allocations?employeeId=${employee.id}`
     }
-  ]
+  ] : []
 
   const handleSave = async () => {
     await updateEmployee.mutateAsync(draft)
@@ -152,15 +181,19 @@ export function EmployeeForm() {
             <IconArrowLeft />
           </Button>
           <Avatar size='lg'>
-            <AvatarFallback>{initialsOf(employee.name)}</AvatarFallback>
+            <AvatarFallback>{initialsOf(employee?.name ?? draft.name ?? 'N E')}</AvatarFallback>
           </Avatar>
           <div>
             <div className='flex items-center gap-3'>
-              <h1 className='text-foreground text-2xl font-semibold tracking-tight'>{employee.name}</h1>
-              <EmployeeStatusBadge status={employee.status} />
+              <h1 className='text-foreground text-2xl font-semibold tracking-tight'>
+                {employee?.name ?? 'New Employee'}
+              </h1>
+              {employee && <EmployeeStatusBadge status={employee.status} />}
             </div>
             <p className='text-muted-foreground text-sm'>
-              {employee.employeeCode} · {employee.jobPosition}
+              {employee
+                ? `${employee.employeeCode} · ${employee.jobPosition}`
+                : 'The employee code is generated on save.'}
             </p>
           </div>
         </div>
@@ -168,11 +201,24 @@ export function EmployeeForm() {
         {canEdit &&
           (isEditing ? (
             <div className='flex gap-2'>
-              <Button variant='outline' onClick={() => setIsEditing(false)} disabled={updateEmployee.isPending}>
+              <Button
+                variant='outline'
+                onClick={() => (isNew ? navigate('/employees') : setIsEditing(false))}
+                disabled={updateEmployee.isPending || createEmployee.isPending}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={updateEmployee.isPending}>
-                {updateEmployee.isPending ? 'Saving…' : 'Save'}
+              <Button
+                onClick={isNew ? saveNew : handleSave}
+                disabled={
+                  updateEmployee.isPending || createEmployee.isPending || (isNew && !canCreate)
+                }
+              >
+                {createEmployee.isPending || updateEmployee.isPending
+                  ? 'Saving…'
+                  : isNew
+                    ? 'Create Employee'
+                    : 'Save'}
               </Button>
             </div>
           ) : (
@@ -223,7 +269,10 @@ export function EmployeeForm() {
                 <Input value={draft.name ?? ''} onChange={e => setDraft({ ...draft, name: e.target.value })} />
               </LabelledField>
 
-              <ReadField label='Employee ID' value={employee.employeeCode} />
+              <ReadField
+                label='Employee ID'
+                value={employee?.employeeCode ?? 'Generated on save'}
+              />
 
               <LabelledField label='Email'>
                 <Input
@@ -266,7 +315,7 @@ export function EmployeeForm() {
                   <SelectContent>
                     <SelectItem value={NONE}>No manager</SelectItem>
                     {colleagues
-                      .filter(c => c.id !== employee.id)
+                      .filter(c => c.id !== employee?.id)
                       .map(c => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
@@ -366,7 +415,7 @@ export function EmployeeForm() {
                 </Select>
               </LabelledField>
             </>
-          ) : (
+          ) : employee ? (
             <>
               <ReadField label='Employee Name' value={employee.name} />
               <ReadField label='Employee ID' value={employee.employeeCode} />
@@ -392,12 +441,12 @@ export function EmployeeForm() {
               <ReadField label='Account Number' value={employee.bankAccountNumber ?? ''} />
               <ReadField label='IFSC Code' value={employee.ifscCode ?? ''} />
             </>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
       {/* Direct reports, when present */}
-      {employee.subordinates && employee.subordinates.length > 0 && (
+      {employee?.subordinates && employee.subordinates.length > 0 && (
         <Card>
           <CardContent className='space-y-3'>
             <h2 className='text-foreground text-sm font-semibold'>

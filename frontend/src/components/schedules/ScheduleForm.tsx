@@ -29,7 +29,7 @@ import {
 } from '@/types/schedule'
 import type { Role } from '@/types/user'
 
-const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 
 /** PRD Screen 5 — Working Schedule form. */
 export function ScheduleForm() {

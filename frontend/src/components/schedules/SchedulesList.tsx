@@ -19,7 +19,7 @@ import { SCHEDULE_TYPE_LABELS } from '@/types/schedule'
 import type { Role } from '@/types/user'
 
 /** PRD: schedule patterns are configured by HR Manager, Payroll Manager and Admin. */
-const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 
 /** PRD Screen 5 — Working Schedules list. */
 export function SchedulesList() {

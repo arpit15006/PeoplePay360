@@ -37,6 +37,19 @@ export function useSaveStructure(id?: string) {
   });
 }
 
+/**
+ * Create or update a structure. The id travels with the call rather than the
+ * hook so one dialog can serve both, the way the rule dialog does.
+ */
+export function useSaveStructureById() {
+  const invalidate = useInvalidateSalary();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: Partial<SalaryStructure> }) =>
+      salaryApi.saveStructure(id, body),
+    onSuccess: invalidate,
+  });
+}
+
 export function useSaveRule() {
   const invalidate = useInvalidateSalary();
   return useMutation({

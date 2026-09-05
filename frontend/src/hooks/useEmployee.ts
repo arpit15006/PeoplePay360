@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { employeesApi } from '@/api/employees';
-import type { EmployeeUpdate } from '@/types/employee';
+import type { EmployeeCreate, EmployeeUpdate } from '@/types/employee';
 
 /** PRD Screen 3 — the employee record itself. */
 export function useEmployee(id: string | undefined) {
@@ -36,6 +36,17 @@ export function useUpdateEmployee(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', id] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+    },
+  });
+}
+
+export function useCreateEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EmployeeCreate) => employeesApi.create(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
     },
   });
 }
