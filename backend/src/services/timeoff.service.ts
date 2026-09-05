@@ -8,7 +8,7 @@ import {
 } from '../validators/timeoff.validator';
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
-import { TimeOffStatus, Prisma } from '@prisma/client';
+import { TimeOffStatus, Prisma, Role } from '@prisma/client';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 
 
@@ -30,6 +30,58 @@ export function durationInDays(startDate: Date, endDate: Date): number {
   const end = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
   const days = Math.floor((end - start) / 86_400_000) + 1;
   return Math.max(1, days);
+}
+
+
+/**
+ * Where each role sits in the approval ladder.
+ *
+ * Section 3 defines the roles cumulatively — each one holds the previous role's
+ * permissions plus more — so they form a hierarchy even though the document
+ * never draws it. Approving leave is not listed among the things a role may do
+ * to itself, and no organisation lets a manager sign off their own absence, so
+ * that is the reading applied here.
+ */
+const ROLE_RANK: Record<Role, number> = {
+  EMPLOYEE: 0,
+  HR_MANAGER: 1,
+  HR_PAYROLL_USER: 2,
+  HR_PAYROLL_MANAGER: 3,
+  ADMIN: 4,
+};
+
+/** The rank of whoever owns an employee record, or 0 when they have no account. */
+async function rankOfEmployee(employeeId: string): Promise<number> {
+  const account = await prisma.user.findFirst({
+    where: { employeeId },
+    select: { role: true },
+  });
+  return account ? ROLE_RANK[account.role] : 0;
+}
+
+/**
+ * Decide whether `actor` may approve, refuse or allocate for `employeeId`.
+ *
+ * Two rules: nobody acts on their own record, and authority runs downward, so
+ * an HR Manager cannot sign off a Payroll Manager's leave. Peers of equal rank
+ * may cover for each other, which keeps a small team from deadlocking when the
+ * only senior person is the one asking for the day off.
+ */
+async function assertMayDecideFor(
+  actor: AuthUser,
+  employeeId: string,
+  selfMessage: string
+): Promise<void> {
+  if (actor.employeeId && actor.employeeId === employeeId) {
+    throw new ForbiddenError(selfMessage);
+  }
+
+  const subjectRank = await rankOfEmployee(employeeId);
+  if (ROLE_RANK[actor.role] < subjectRank) {
+    throw new ForbiddenError(
+      'This record belongs to someone senior to you, so you cannot act on it.'
+    );
+  }
 }
 
 export class TimeOffService {
@@ -101,7 +153,15 @@ export class TimeOffService {
     });
   }
 
-  static async createAllocation(input: CreateAllocationInput) {
+  static async createAllocation(input: CreateAllocationInput, user: AuthUser) {
+    // Granting yourself leave days is the same conflict as approving your own
+    // request, so it is refused for the same reason.
+    await assertMayDecideFor(
+      user,
+      input.employeeId,
+      'You cannot grant yourself a leave allocation. Someone else must approve your balance.'
+    );
+
     const existing = await prisma.timeOffAllocation.findUnique({
       where: {
         employeeId_timeOffTypeId_validityYear: {
@@ -131,9 +191,15 @@ export class TimeOffService {
     });
   }
 
-  static async updateAllocation(id: string, input: UpdateAllocationInput) {
+  static async updateAllocation(id: string, input: UpdateAllocationInput, user: AuthUser) {
     const existing = await prisma.timeOffAllocation.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('Time Off Allocation');
+
+    await assertMayDecideFor(
+      user,
+      existing.employeeId,
+      'You cannot change your own leave allocation. Someone else must adjust your balance.'
+    );
 
     const allocated = input.allocated !== undefined ? input.allocated : existing.allocated;
     const taken = input.taken !== undefined ? input.taken : existing.taken;
@@ -284,6 +350,12 @@ export class TimeOffService {
       throw new ValidationError('This request is already approved');
     }
 
+    await assertMayDecideFor(
+      user,
+      request.employeeId,
+      'You cannot approve your own leave. Someone else with at least your authority must review it.'
+    );
+
     const year = request.startDate.getFullYear();
 
     // Use transaction to update request and allocation atomically
@@ -346,6 +418,12 @@ export class TimeOffService {
     if (request.status === TimeOffStatus.REFUSED) {
       throw new ValidationError('This request is already refused');
     }
+
+    await assertMayDecideFor(
+      user,
+      request.employeeId,
+      'You cannot refuse your own leave. Someone else with at least your authority must review it.'
+    );
 
     const wasApproved = request.status === TimeOffStatus.APPROVED;
     const year = request.startDate.getFullYear();

@@ -64,7 +64,7 @@ export async function listAllocations(req: Request, res: Response, next: NextFun
 export async function createAllocation(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const validated = createAllocationSchema.parse(req.body);
-    const allocation = await TimeOffService.createAllocation(validated);
+    const allocation = await TimeOffService.createAllocation(validated, req.user!);
     res.status(201).json({ success: true, data: allocation });
   } catch (err) {
     next(err);
@@ -74,7 +74,7 @@ export async function createAllocation(req: Request, res: Response, next: NextFu
 export async function updateAllocation(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const validated = updateAllocationSchema.parse(req.body);
-    const allocation = await TimeOffService.updateAllocation(req.params.id, validated);
+    const allocation = await TimeOffService.updateAllocation(req.params.id, validated, req.user!);
     res.json({ success: true, data: allocation });
   } catch (err) {
     next(err);
