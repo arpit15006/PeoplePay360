@@ -12,7 +12,7 @@ router.use(authenticate);
 // GET /api/salary-structures — List all salary structures
 router.get(
   '/',
-  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const structures = await SalaryStructureService.listStructures();
@@ -26,7 +26,7 @@ router.get(
 // GET /api/salary-structures/:id — Get structure details with its rules
 router.get(
   '/:id',
-  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const structure = await SalaryStructureService.getStructureById(req.params.id);
