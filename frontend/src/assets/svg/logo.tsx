@@ -2,56 +2,16 @@ import type { SVGAttributes } from 'react'
 
 const Logo = (props: SVGAttributes<SVGElement>) => {
   return (
-    <svg width='1em' height='1em' viewBox='0 0 328 329' fill='none' xmlns='http://www.w3.org/2000/svg' {...props}>
-      <rect y='0.5' width='328' height='328' rx='164' fill='black' className='dark:fill-white' />
-      <path
-        d='M165.018 72.3008V132.771C165.018 152.653 148.9 168.771 129.018 168.771H70.2288'
-        stroke='white'
-        strokeWidth='20'
-        className='dark:stroke-black'
-      />
-      <path
-        d='M166.627 265.241L166.627 204.771C166.627 184.889 182.744 168.771 202.627 168.771L261.416 168.771'
-        stroke='white'
-        strokeWidth='20'
-        className='dark:stroke-black'
-      />
-      <line
-        x1='238.136'
-        y1='98.8184'
-        x2='196.76'
-        y2='139.707'
-        stroke='white'
-        strokeWidth='20'
-        className='dark:stroke-black'
-      />
-      <line
-        x1='135.688'
-        y1='200.957'
-        x2='94.3128'
-        y2='241.845'
-        stroke='white'
-        strokeWidth='20'
-        className='dark:stroke-black'
-      />
-      <line
-        x1='133.689'
-        y1='137.524'
-        x2='92.5566'
-        y2='96.3914'
-        stroke='white'
-        strokeWidth='20'
-        className='dark:stroke-black'
-      />
-      <line
-        x1='237.679'
-        y1='241.803'
-        x2='196.547'
-        y2='200.671'
-        stroke='white'
-        strokeWidth='20'
-        className='dark:stroke-black'
-      />
+    <svg width='1em' height='1em' viewBox='0 0 512 512' fill='none' xmlns='http://www.w3.org/2000/svg' {...props}>
+      {/* Center person (front, larger) */}
+      <circle cx='256' cy='160' r='80' fill='#144f84' />
+      <path d='M140 440 C140 340, 190 280, 256 280 C322 280, 372 340, 372 440 Z' fill='#144f84' />
+      {/* Left person (behind) */}
+      <circle cx='110' cy='195' r='65' fill='#3a75af' />
+      <path d='M10 440 C10 355, 55 305, 110 305 C165 305, 195 340, 195 380 L195 440 Z' fill='#3a75af' />
+      {/* Right person (behind) */}
+      <circle cx='402' cy='195' r='65' fill='#3a75af' />
+      <path d='M317 440 L317 380 C317 340, 347 305, 402 305 C457 305, 502 355, 502 440 Z' fill='#3a75af' />
     </svg>
   )
 }

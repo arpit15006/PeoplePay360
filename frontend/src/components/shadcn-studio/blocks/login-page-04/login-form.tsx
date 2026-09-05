@@ -7,7 +7,7 @@ import { Field, FieldLabel, FieldGroup } from '@/components/ui/field'
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { roleLandingPath, ROLE_LABELS, type Role } from '@/types/user'
+import { roleLandingPath, type Role } from '@/types/user'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -18,12 +18,18 @@ interface LoginFormProps {
  * on that role's screen per PRD Screen 1. Credentials are always verified by
  * the server — these buttons only supply them.
  */
-const DEMO_ACCOUNTS: { role: Role; email: string; lands: string }[] = [
-  { role: 'ADMIN', email: 'admin@peoplepay360.com', lands: 'Dashboard' },
-  { role: 'HR_MANAGER', email: 'hr.manager@peoplepay360.com', lands: 'Employees' },
-  { role: 'HR_PAYROLL_USER', email: 'payroll.user@peoplepay360.com', lands: 'Payruns' },
-  { role: 'HR_PAYROLL_MANAGER', email: 'payroll.manager@peoplepay360.com', lands: 'Dashboard' },
-  { role: 'EMPLOYEE', email: 'employee@peoplepay360.com', lands: 'My profile' },
+const DEMO_ACCOUNTS: {
+  role: Role
+  label: string
+  email: string
+  lands: string
+  dotColor: string
+}[] = [
+  { role: 'ADMIN', label: 'Admin', email: 'admin@peoplepay360.com', lands: 'Dashboard', dotColor: 'bg-blue-500' },
+  { role: 'HR_MANAGER', label: 'HR Manager', email: 'hr.manager@peoplepay360.com', lands: 'Employees', dotColor: 'bg-emerald-500' },
+  { role: 'HR_PAYROLL_USER', label: 'Payroll User', email: 'payroll.user@peoplepay360.com', lands: 'Payruns', dotColor: 'bg-amber-500' },
+  { role: 'HR_PAYROLL_MANAGER', label: 'Payroll Manager', email: 'payroll.manager@peoplepay360.com', lands: 'Dashboard', dotColor: 'bg-indigo-500' },
+  { role: 'EMPLOYEE', label: 'Employee', email: 'employee@peoplepay360.com', lands: 'My profile', dotColor: 'bg-violet-500' },
 ]
 
 const DEMO_PASSWORD = 'password123'
@@ -173,37 +179,40 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
           </Button>
         </div>
 
-        {/* Demo credentials — one click signs in and lands on that role's screen */}
-        <div className="pt-3 border-t border-slate-100">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 text-center mb-2.5">
-            Demo accounts
-          </p>
-          <div className="grid grid-cols-2 gap-1.5">
+        {/* Demo credentials — compact persona access */}
+        <div className="pt-3 border-t border-slate-100 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Demo accounts
+            </span>
+            <span className="text-[10px] text-slate-400">
+              pwd: <span className="font-mono font-medium text-slate-600">{DEMO_PASSWORD}</span>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
             {DEMO_ACCOUNTS.map((account) => (
               <button
                 key={account.role}
                 type="button"
                 disabled={loading}
                 onClick={() => handleDemoLogin(account.email)}
-                title={`${account.email} → ${account.lands}`}
-                className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors disabled:opacity-50 ${
+                title={`${account.label} (${account.email})\nLands on: ${account.lands}\nPassword: ${DEMO_PASSWORD}`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all cursor-pointer disabled:opacity-50 ${
                   email === account.email
-                    ? 'border-primary bg-primary/5'
-                    : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
-                } ${account.role === 'EMPLOYEE' ? 'col-span-2' : ''}`}
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80 hover:border-slate-300 hover:text-slate-900 active:scale-95'
+                }`}
               >
-                <span className="block text-[11px] font-semibold text-slate-700 leading-tight">
-                  {ROLE_LABELS[account.role]}
-                </span>
-                <span className="block text-[10px] text-slate-400 leading-tight">
-                  → {account.lands}
-                </span>
+                <span
+                  className={`size-1.5 rounded-full shrink-0 ${
+                    email === account.email ? 'bg-white' : account.dotColor
+                  }`}
+                />
+                <span>{account.label}</span>
               </button>
             ))}
           </div>
-          <p className="mt-2 text-center text-[10px] text-slate-400">
-            All demo accounts use the password <span className="font-mono">{DEMO_PASSWORD}</span>
-          </p>
         </div>
       </FieldGroup>
     </form>
