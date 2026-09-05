@@ -30,12 +30,18 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { IconPlus, IconFilterOff } from '@tabler/icons-react'
+import { IconPlus, IconFilterOff, IconPencil } from '@tabler/icons-react'
 
-import { useCreateAllocation, useTimeOffAllocations, useTimeOffTypes } from '@/hooks/useTimeOff'
+import {
+  useCreateAllocation,
+  useUpdateAllocation,
+  useTimeOffAllocations,
+  useTimeOffTypes
+} from '@/hooks/useTimeOff'
 import { useEmployees } from '@/hooks/useEmployees'
 import { useAuth } from '@/context/AuthContext'
 import type { Role } from '@/types/user'
+import type { TimeOffAllocation } from '@/types/timeoff'
 
 const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 
@@ -49,8 +55,11 @@ export function TimeOffAllocations() {
   const { data: types = [] } = useTimeOffTypes()
   const { data: employees = [] } = useEmployees()
   const createAllocation = useCreateAllocation()
+  const updateAllocation = useUpdateAllocation()
 
   const [creating, setCreating] = useState(false)
+  // Set when correcting an existing balance rather than granting a new one.
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({
     employeeId: '',
     timeOffTypeId: '',
@@ -61,14 +70,52 @@ export function TimeOffAllocations() {
 
   const canManage = !!user && CAN_MANAGE.includes(user.role)
 
+  const openCreate = () => {
+    setEditingId(null)
+    setForm({
+      employeeId: '',
+      timeOffTypeId: '',
+      allocated: 24,
+      validityYear: new Date().getFullYear()
+    })
+    setFormError(null)
+    setCreating(true)
+  }
+
+  const openEdit = (allocation: TimeOffAllocation) => {
+    setEditingId(allocation.id)
+    setForm({
+      employeeId: allocation.employeeId,
+      timeOffTypeId: allocation.timeOffTypeId,
+      allocated: allocation.allocated,
+      validityYear: allocation.validityYear
+    })
+    setFormError(null)
+    setCreating(true)
+  }
+
   const submit = async () => {
     setFormError(null)
     if (!form.employeeId) return setFormError('Select an employee.')
     if (!form.timeOffTypeId) return setFormError('Select a time off type.')
     if (!form.allocated || form.allocated <= 0) return setFormError('Allocated days must be above zero.')
 
-    await createAllocation.mutateAsync({ ...form })
-    setCreating(false)
+    try {
+      if (editingId) {
+        // Days already taken are not editable here; the server recomputes what
+        // remains so a correction cannot silently erase consumed leave.
+        await updateAllocation.mutateAsync({
+          id: editingId,
+          body: { allocated: form.allocated, validityYear: form.validityYear }
+        })
+      } else {
+        await createAllocation.mutateAsync({ ...form })
+      }
+      setCreating(false)
+      setEditingId(null)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not save the allocation.')
+    }
   }
 
   return (
@@ -82,7 +129,7 @@ export function TimeOffAllocations() {
         </div>
 
         {canManage && (
-          <Button onClick={() => setCreating(true)}>
+          <Button onClick={openCreate}>
             <IconPlus />
             New Allocation
           </Button>
@@ -133,6 +180,7 @@ export function TimeOffAllocations() {
                   <TableHead className='text-right'>Remaining</TableHead>
                   <TableHead className='text-right'>Validity</TableHead>
                   <TableHead>Status</TableHead>
+                  {canManage && <TableHead className='w-10' />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -184,6 +232,18 @@ export function TimeOffAllocations() {
                             {allocation.status}
                           </Badge>
                         </TableCell>
+                        {canManage && (
+                          <TableCell>
+                            <Button
+                              variant='ghost'
+                              size='icon-sm'
+                              aria-label={`Edit allocation for ${allocation.employee?.name ?? 'employee'}`}
+                              onClick={() => openEdit(allocation)}
+                            >
+                              <IconPencil />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     )
                   })
@@ -197,7 +257,7 @@ export function TimeOffAllocations() {
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New allocation</DialogTitle>
+            <DialogTitle>{editingId ? 'Edit allocation' : 'New allocation'}</DialogTitle>
             <DialogDescription>
               Grants a leave balance for a validity year. Taken starts at zero.
             </DialogDescription>
@@ -275,7 +335,10 @@ export function TimeOffAllocations() {
             <Button variant='outline' onClick={() => setCreating(false)}>
               Cancel
             </Button>
-            <Button onClick={submit} disabled={createAllocation.isPending}>
+            <Button
+              onClick={submit}
+              disabled={createAllocation.isPending || updateAllocation.isPending}
+            >
               {createAllocation.isPending ? 'Creating…' : 'Create'}
             </Button>
           </DialogFooter>

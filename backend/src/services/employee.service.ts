@@ -239,6 +239,17 @@ export class EmployeeService {
       throw new NotFoundError('Employee');
     }
 
+    // Payslips cascade from the employee, so deleting someone who has been paid
+    // erases the payroll history the spec requires to be archived. Terminating
+    // the record keeps that history while ending their employment, which is the
+    // action an HR system should offer here.
+    const payslips = await prisma.payslip.count({ where: { employeeId: id } });
+    if (payslips > 0) {
+      throw new ConflictError(
+        `${existing.name} has ${payslips} payslip(s) and cannot be deleted without losing payroll history. Set their status to Terminated instead.`
+      );
+    }
+
     await prisma.employee.delete({ where: { id } });
     return { success: true, message: `Employee ${existing.name} deleted successfully` };
   }

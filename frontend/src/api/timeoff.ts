@@ -16,6 +16,8 @@ export const timeOffApi = {
       .then(r => r.data ?? []),
   createAllocation: (body: Record<string, unknown>) =>
     api.post<Env<TimeOffAllocation>>('/timeoff/allocations', body).then(r => r.data),
+  updateAllocation: (id: string, body: Record<string, unknown>) =>
+    api.put<Env<TimeOffAllocation>>(`/timeoff/allocations/${id}`, body).then(r => r.data),
 
   requests: (employeeId?: string) =>
     api

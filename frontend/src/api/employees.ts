@@ -27,8 +27,6 @@ export const employeesApi = {
   create: (body: EmployeeCreate) =>
     api.post<Envelope<EmployeeDetail>>('/employees', body).then(r => r.data),
 
-  remove: (id: string) => api.del<{ success: boolean }>(`/employees/${id}`),
-
   update: (id: string, body: EmployeeUpdate) =>
     api.put<Envelope<EmployeeDetail>>(`/employees/${id}`, body).then(r => r.data),
 

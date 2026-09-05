@@ -48,6 +48,16 @@ export function useCreateAllocation() {
   return useMutation({ mutationFn: timeOffApi.createAllocation, onSuccess: invalidate });
 }
 
+/** Correcting a balance: the days granted, its validity year, or its approval. */
+export function useUpdateAllocation() {
+  const invalidate = useInvalidateTimeOff();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+      timeOffApi.updateAllocation(id, body),
+    onSuccess: invalidate,
+  });
+}
+
 export function useSaveType(id?: string) {
   const invalidate = useInvalidateTimeOff();
   return useMutation({
