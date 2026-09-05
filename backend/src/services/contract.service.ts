@@ -1,14 +1,58 @@
 import prisma from '../config/db';
 import { CreateContractInput, UpdateContractInput } from '../validators/contract.validator';
-import { NotFoundError, ForbiddenError } from '../utils/errors';
+import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
-import { Prisma } from '@prisma/client';
+import { Prisma, ContractStatus } from '@prisma/client';
 
 export interface ContractFilters {
   employeeId?: string;
   departmentId?: string;
   status?: string;
   q?: string;
+}
+
+
+/**
+ * Reject a contract that would run concurrently with another active one.
+ *
+ * The spec requires payroll to use the contract applicable to a period while
+ * "avoiding concurrent active contracts". Without this, an employee could hold
+ * two overlapping ACTIVE contracts and the payrun would silently pick whichever
+ * the resolver happened to see first, changing someone's pay by accident.
+ *
+ * An open-ended contract (no endDate) runs forever, so it overlaps anything
+ * that has not already finished before it starts. Draft, expired and terminated
+ * contracts are history and never conflict.
+ */
+async function assertNoOverlappingContract(
+  employeeId: string,
+  startDate: Date,
+  endDate: Date | null,
+  ignoreContractId?: string
+): Promise<void> {
+  const clash = await prisma.contract.findFirst({
+    where: {
+      employeeId,
+      status: ContractStatus.ACTIVE,
+      ...(ignoreContractId ? { id: { not: ignoreContractId } } : {}),
+      // Two ranges overlap when each starts before the other ends. A null
+      // endDate is treated as "no end", so only the start bound applies.
+      AND: [
+        endDate ? { startDate: { lte: endDate } } : {},
+        { OR: [{ endDate: null }, { endDate: { gte: startDate } }] },
+      ],
+    },
+    select: { id: true, startDate: true, endDate: true },
+  });
+
+  if (clash) {
+    const until = clash.endDate ? clash.endDate.toISOString().slice(0, 10) : 'open-ended';
+    throw new ConflictError(
+      `This employee already has an active contract from ${clash.startDate
+        .toISOString()
+        .slice(0, 10)} to ${until}. End or terminate it before adding another.`
+    );
+  }
 }
 
 export class ContractService {
@@ -102,6 +146,14 @@ export class ContractService {
     const startDate = new Date(input.startDate);
     const endDate = input.endDate ? new Date(input.endDate) : null;
 
+    if (endDate && endDate < startDate) {
+      throw new ValidationError('The contract end date cannot be before its start date');
+    }
+
+    if ((input.status ?? ContractStatus.DRAFT) === ContractStatus.ACTIVE) {
+      await assertNoOverlappingContract(input.employeeId, startDate, endDate);
+    }
+
     const contract = await prisma.contract.create({
       data: {
         ...input,
@@ -127,6 +179,20 @@ export class ContractService {
 
     const startDate = input.startDate ? new Date(input.startDate) : undefined;
     const endDate = input.endDate !== undefined ? (input.endDate ? new Date(input.endDate) : null) : undefined;
+
+    // Activating a contract, or moving its dates, can create the same overlap
+    // that creation guards against, so the check applies here too.
+    const nextStatus = input.status ?? existing.status;
+    const nextStart = startDate ?? existing.startDate;
+    const nextEnd = endDate !== undefined ? endDate : existing.endDate;
+
+    if (nextEnd && nextEnd < nextStart) {
+      throw new ValidationError('The contract end date cannot be before its start date');
+    }
+
+    if (nextStatus === ContractStatus.ACTIVE) {
+      await assertNoOverlappingContract(existing.employeeId, nextStart, nextEnd, id);
+    }
 
     const updated = await prisma.contract.update({
       where: { id },

@@ -234,6 +234,14 @@ export class TimeOffService {
         throw new ValidationError(`No allocation found for '${type.name}' in year ${year}`);
       }
 
+      // An allocation only becomes spendable once it is approved. Without this
+      // an employee could draw against a balance still awaiting sign-off.
+      if (allocation.status !== 'Approved') {
+        throw new ValidationError(
+          `The '${type.name}' allocation for ${year} is ${allocation.status.toLowerCase()} and cannot be used until it is approved`
+        );
+      }
+
       if (allocation.remaining < duration) {
         throw new ValidationError(
           `Insufficient leave balance. Requested: ${duration} ${type.unit.toLowerCase()}, Available: ${allocation.remaining}`
