@@ -79,7 +79,22 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
   // A new record opens straight into edit mode; there is nothing to read yet.
   const [isEditing, setIsEditing] = useState(isNew)
   const [draft, setDraft] = useState<EmployeeUpdate>(
-    isNew ? { employeeType: 'FULL_TIME', status: 'ACTIVE' } : {}
+    isNew
+      ? {
+          name: '',
+          email: '',
+          phone: '',
+          jobPosition: '',
+          bankName: '',
+          bankAccountNumber: '',
+          ifscCode: '',
+          departmentId: '',
+          managerId: null,
+          scheduleId: null,
+          employeeType: 'FULL_TIME',
+          status: 'ACTIVE'
+        }
+      : {}
   )
 
   // Reset the draft whenever the record loads or editing is cancelled.
@@ -288,7 +303,7 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
 
               <LabelledField label='Department'>
                 <Select
-                  value={draft.departmentId ?? undefined}
+                  value={draft.departmentId ?? ''}
                   onValueChange={value => setDraft({ ...draft, departmentId: value })}
                 >
                   <SelectTrigger className='w-full'>
