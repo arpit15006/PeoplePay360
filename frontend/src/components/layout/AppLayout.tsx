@@ -262,7 +262,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             to='/employees'
             className='flex items-center gap-2.5 group focus:outline-hidden'
           >
-            <LogoSvg className='size-8 shrink-0 [&_rect]:fill-sidebar [&_rect:first-child]:fill-primary transition-transform group-hover:scale-105' />
+            <LogoSvg className='size-8 shrink-0 transition-transform group-hover:scale-105' />
             <span className='text-lg font-bold tracking-tight text-foreground'>
               PeoplePay<span className='text-primary'>360</span>
             </span>

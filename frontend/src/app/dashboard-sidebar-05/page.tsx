@@ -223,7 +223,7 @@ const SidebarPage = () => {
               <SidebarMenuItem>
                 <SidebarMenuButton size='lg' className='gap-2.5 bg-transparent! [&>svg]:size-8' asChild>
                   <a href='#'>
-                    <LogoSvg className='[&_rect]:fill-sidebar [&_rect:first-child]:fill-primary' />
+                    <LogoSvg className='size-8' />
                     <span className='text-xl font-semibold'>Food Point</span>
                   </a>
                 </SidebarMenuButton>
