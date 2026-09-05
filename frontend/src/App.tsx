@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import EmployeesDashboard from './components/employees/EmployeesDashboard';
 import EmployeeForm from './components/employees/EmployeeForm';
+import ContractsList from './components/contracts/ContractsList';
+import ContractForm from './components/contracts/ContractForm';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -52,8 +54,22 @@ export default function App() {
                 />
 
                 {/* Contracts */}
-                <Route path="/contracts" element={soon('Contracts', '/contracts')} />
-                <Route path="/contracts/:id" element={soon('Contract Form', '/contracts/:id')} />
+                <Route
+                  path="/contracts"
+                  element={
+                    <ProtectedRoute>
+                      <ContractsList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/contracts/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ContractForm />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Working Schedules */}
                 <Route path="/schedules" element={soon('Working Schedules', '/schedules')} />

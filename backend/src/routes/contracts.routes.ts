@@ -23,14 +23,14 @@ router.get('/:id', getContract);
 // POST /api/contracts — Create a new contract (HR Manager, HR Payroll Manager, Admin)
 router.post(
   '/',
-  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   createContract
 );
 
 // PUT /api/contracts/:id — Update contract (HR Manager, HR Payroll Manager, Admin)
 router.put(
   '/:id',
-  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   updateContract
 );
 
