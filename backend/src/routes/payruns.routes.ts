@@ -54,14 +54,14 @@ router.post(
 // Validate payrun (Manager approval)
 router.post(
   '/:id/validate',
-  authorize(Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   validatePayrun
 );
 
 // Mark as Paid
 router.post(
   '/:id/mark-paid',
-  authorize(Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   markPayrunPaid
 );
 

@@ -45,8 +45,11 @@ import {
 } from '@/types/payrun'
 import type { Role } from '@/types/user'
 
-/** Validate, Mark Paid and Send are Payroll Manager and Admin only. */
-const FINALISERS: Role[] = ['HR_PAYROLL_MANAGER', 'ADMIN']
+/** Compute, Validate and Mark Paid can be performed by Payroll Users, Managers and Admins. */
+const CAN_PROCESS: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+
+/** Sending payslips via email is restricted to Payroll Managers and Admins only. */
+const CAN_SEND: Role[] = ['HR_PAYROLL_MANAGER', 'ADMIN']
 
 /** PRD Screen 13 — Payrun processing, plus Screen 16 bulk send. */
 export function PayrunDetail() {
@@ -61,7 +64,8 @@ export function PayrunDetail() {
   const [sending, setSending] = useState(false)
   const [recipients, setRecipients] = useState<string[]>([])
 
-  const canFinalise = !!user && FINALISERS.includes(user.role)
+  const canProcess = !!user && CAN_PROCESS.includes(user.role)
+  const canSend = !!user && CAN_SEND.includes(user.role)
 
   if (isLoading) {
     return (
@@ -147,7 +151,7 @@ export function PayrunDetail() {
         <div className='flex flex-wrap gap-2'>
           <Button
             variant='outline'
-            disabled={action.isPending || stage >= 2}
+            disabled={action.isPending || !canProcess || stage >= 2}
             onClick={() => run('compute', 'Compute')}
           >
             <IconCalculator />
@@ -155,7 +159,7 @@ export function PayrunDetail() {
           </Button>
           <Button
             variant='outline'
-            disabled={action.isPending || !canFinalise || stage < 1 || stage >= 2}
+            disabled={action.isPending || !canProcess || stage < 1 || stage >= 2}
             onClick={() => run('validate', 'Validate')}
           >
             <IconCheck />
@@ -163,13 +167,17 @@ export function PayrunDetail() {
           </Button>
           <Button
             variant='outline'
-            disabled={action.isPending || !canFinalise || stage < 2 || stage >= 3}
+            disabled={action.isPending || !canProcess || stage < 2 || stage >= 3}
             onClick={() => run('markPaid', 'Mark Paid')}
           >
             <IconCash />
             Mark Paid
           </Button>
-          <Button disabled={action.isPending || !canFinalise || stage < 3} onClick={openSend}>
+          <Button
+            disabled={action.isPending || !canSend || stage < 2}
+            onClick={openSend}
+            title={!canSend ? 'Only HR Payroll Manager and Admin can send payslips' : undefined}
+          >
             <IconMail />
             Send Payslips
           </Button>
