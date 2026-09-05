@@ -2,14 +2,23 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import EmployeesDashboard from './components/employees/EmployeesDashboard';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
+import LoginView from './components/auth/LoginView';
 
 export default function App() {
   return (
-    <AppLayout>
-      <Routes>
-        {/* Root & Employees Dashboard */}
-        <Route path="/" element={<Navigate to="/employees" replace />} />
-        <Route path="/employees" element={<EmployeesDashboard />} />
+    <Routes>
+      {/* Screen 1: Full-screen Standalone Login */}
+      <Route path="/login" element={<LoginView />} />
+
+      {/* Main Application Layout for authenticated routes */}
+      <Route
+        path="/*"
+        element={
+          <AppLayout>
+            <Routes>
+              {/* Root & Employees Dashboard */}
+              <Route path="/" element={<Navigate to="/employees" replace />} />
+              <Route path="/employees" element={<EmployeesDashboard />} />
 
         {/* Other Planned Routes - Minimal Coming Soon Placeholders */}
         <Route
@@ -69,9 +78,12 @@ export default function App() {
           element={<ComingSoonPlaceholder pageName="Dashboard" routePath="/dashboard" />}
         />
 
-        {/* Catch-all fallback */}
-        <Route path="*" element={<Navigate to="/employees" replace />} />
-      </Routes>
-    </AppLayout>
+              {/* Catch-all fallback */}
+              <Route path="*" element={<Navigate to="/employees" replace />} />
+            </Routes>
+          </AppLayout>
+        }
+      />
+    </Routes>
   );
 }
