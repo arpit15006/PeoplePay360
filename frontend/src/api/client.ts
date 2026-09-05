@@ -41,9 +41,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    // The API error handler returns { success: false, error: "..." }; older
-    // handlers used { message: "..." }. Accept either.
-    const message = data?.error || data?.message || `Request failed (${response.status})`;
+    const detailMessage = Array.isArray(data?.details)
+      ? data.details.map((d: any) => (d.message ? `${d.field ? `${d.field}: ` : ''}${d.message}` : String(d))).join('; ')
+      : null;
+    const message = detailMessage || data?.error || data?.message || `Request failed (${response.status})`;
     throw new ApiError(message, response.status);
   }
 
