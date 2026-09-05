@@ -30,6 +30,8 @@ import LogoSvg from '@/assets/svg/logo'
 import {
   IconLayoutDashboard,
   IconUsers,
+  IconBuilding,
+  IconShieldLock,
   IconFileDescription,
   IconClock,
   IconCalendarTime,
@@ -55,10 +57,14 @@ type MenuItem = {
   allow?: Role[]
 } & ({ href: string; items?: never } | { href?: never; items: MenuSubItem[] })
 
+/** Only Admin manages users, roles and permissions. */
+const ADMIN_ONLY: Role[] = ['ADMIN']
+
 /** PRD section 2 navigation hierarchy. */
 const menuItems: MenuItem[] = [
   { icon: <IconUsers />, label: 'Employees', href: '/employees' },
   { icon: <IconFileDescription />, label: 'Contracts', href: '/contracts' },
+  { icon: <IconBuilding />, label: 'Departments', href: '/departments' },
   { icon: <IconClock />, label: 'Attendance', href: '/attendance' },
   // Not in the PRD's six-item nav tree, but Screen 5 has its own URL and would
   // otherwise be unreachable. Move it if you want the tree kept literal.
@@ -88,6 +94,12 @@ const menuItems: MenuItem[] = [
     label: 'Payroll Dashboard',
     href: '/dashboard',
     allow: NOT_EMPLOYEE
+  },
+  {
+    icon: <IconShieldLock />,
+    label: 'User Management',
+    href: '/users',
+    allow: ADMIN_ONLY
   }
 ]
 

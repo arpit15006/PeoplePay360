@@ -44,6 +44,12 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       throw new UnauthorizedError('Invalid email or password');
     }
 
+    // Checked after the password so a wrong password and a suspended account
+    // are indistinguishable to someone probing for valid addresses.
+    if (!user.isActive) {
+      throw new UnauthorizedError('This account has been deactivated. Contact an administrator.');
+    }
+
     // Generate JWT
     const token = jwt.sign(
       { userId: user.id },

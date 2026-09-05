@@ -66,7 +66,7 @@ export class DashboardService {
     // issued concurrently. The database is remote, so each sequential await used to
     // cost a full network round-trip; running them together collapses seven
     // round-trips into roughly one.
-    const [payslips, approvedTimeOff, attendances, departments, timeOffTypes, draftPayruns, pendingLeaves] =
+    const [payslips, approvedTimeOff, attendances, departments, timeOffTypes, trendRows, draftPayruns, pendingLeaves] =
       await Promise.all([
         // 1. Payslips for period
         prisma.payslip.findMany({
@@ -91,7 +91,12 @@ export class DashboardService {
             employee: employeeFilter,
             ...attendanceDateWhere,
           },
-          select: { status: true },
+          select: {
+            status: true,
+            checkOut: true,
+            overtimeHours: true,
+            manuallyEdited: true,
+          },
         }),
 
         // 4. Salary Cost by Department
@@ -117,6 +122,16 @@ export class DashboardService {
           },
         }),
 
+        // 7. Monthly net salary trend. Grouped in the database rather than
+        // pulling every payslip back, and deliberately not scoped to the
+        // selected period: a trend needs the periods either side of it.
+        prisma.payslip.groupBy({
+          by: ['period'],
+          where: employeeFilter ? { employee: employeeFilter } : undefined,
+          _sum: { netSalary: true, grossSalary: true },
+          _count: { _all: true },
+        }),
+
         // 6. Actionable Alerts — payruns still awaiting computation
         prisma.payrun.count({ where: { status: PayrunStatus.DRAFT } }),
 
@@ -130,12 +145,23 @@ export class DashboardService {
     const totalDeductions = payslips.reduce((sum, p) => sum + p.totalDeductions, 0);
     const averageSalary = payslipsGenerated > 0 ? Math.round(totalNetSalaryPaid / payslipsGenerated) : 0;
 
+    const totalLogs = attendances.length;
+    const presentLogs = attendances.filter((a) => a.status !== AttendanceStatus.ABSENT).length;
+
     const attendanceHealth = {
       present: attendances.filter((a) => a.status === AttendanceStatus.PRESENT).length,
       late: attendances.filter((a) => a.status === AttendanceStatus.LATE).length,
       halfDay: attendances.filter((a) => a.status === AttendanceStatus.HALF_DAY).length,
       absent: attendances.filter((a) => a.status === AttendanceStatus.ABSENT).length,
-      totalLogs: attendances.length,
+      totalLogs,
+      // Hours logged beyond the scheduled day.
+      overtimeHours: Math.round(attendances.reduce((sum, a) => sum + a.overtimeHours, 0) * 100) / 100,
+      // Someone clocked in and never clocked out; the day cannot be trusted.
+      missingCheckOuts: attendances.filter((a) => !a.checkOut).length,
+      // Records an authorised user corrected rather than the employee clocking.
+      manualEdits: attendances.filter((a) => a.manuallyEdited).length,
+      // Share of logged days where the employee actually turned up.
+      coverage: totalLogs > 0 ? Math.round((presentLogs / totalLogs) * 1000) / 10 : 0,
     };
 
     const salaryCostByDepartment = [];
@@ -161,6 +187,22 @@ export class DashboardService {
       approvedRequestsCount: t.requests.length,
       totalDuration: t.requests.reduce((sum, r) => sum + r.duration, 0),
     }));
+
+    // Payslip periods are labels, so they sort alphabetically rather than
+    // chronologically; parsing each one back to a date restores real order.
+    const salaryTrend = trendRows
+      .map((row) => {
+        const range = periodRange(row.period);
+        return {
+          period: row.period,
+          sortKey: range ? range.gte.getTime() : 0,
+          totalNet: Math.round((row._sum.netSalary ?? 0) * 100) / 100,
+          totalGross: Math.round((row._sum.grossSalary ?? 0) * 100) / 100,
+          payslipsCount: row._count._all,
+        };
+      })
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ sortKey: _sortKey, ...rest }) => rest);
 
     // 6. Actionable Alerts
     const alerts = [];
@@ -190,6 +232,7 @@ export class DashboardService {
       },
       attendanceHealth,
       salaryCostByDepartment,
+      salaryTrend,
       timeOffOverview,
       alerts,
     };

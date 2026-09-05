@@ -3,7 +3,7 @@ import { CreateAttendanceInput, UpdateAttendanceInput } from '../validators/atte
 import { NotFoundError, ForbiddenError, ConflictError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
 import { AttendanceStatus, Prisma } from '@prisma/client';
-import { calculateWorkedHours } from '../utils/dates';
+import { calculateWorkedHours, parseTimeToMinutes } from '../utils/dates';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 
 /**
@@ -17,7 +17,14 @@ import { emitEvent, SocketEvents } from '../socket/emitter';
  * getUTCDay is deliberate: attendance dates are stored at UTC midnight, so
  * reading the local weekday would pick the wrong shift either side of it.
  */
-async function breakMinutesFor(employeeId: string, date: Date): Promise<number> {
+interface ShiftContext {
+  /** Unpaid meal break in minutes. */
+  breakMinutes: number;
+  /** Hours the schedule expects that day, net of the break. 0 on a day off. */
+  scheduledHours: number;
+}
+
+async function shiftContextFor(employeeId: string, date: Date): Promise<ShiftContext> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
@@ -25,7 +32,12 @@ async function breakMinutesFor(employeeId: string, date: Date): Promise<number> 
         select: {
           dailyShifts: {
             where: { dayOfWeek: date.getUTCDay() },
-            select: { breakMinutes: true, isWorkingDay: true },
+            select: {
+              breakMinutes: true,
+              isWorkingDay: true,
+              startTime: true,
+              endTime: true,
+            },
           },
         },
       },
@@ -35,10 +47,22 @@ async function breakMinutesFor(employeeId: string, date: Date): Promise<number> 
   const shift = employee?.workingSchedule?.dailyShifts[0];
 
   // A shift flagged as non-working carries no meal break to deduct, but someone
-  // who clocked in anyway still worked, so the span is kept whole.
-  if (!shift || !shift.isWorkingDay) return 0;
+  // who clocked in anyway still worked, so the span is kept whole. With no
+  // scheduled hours, every hour worked that day counts as overtime.
+  if (!shift || !shift.isWorkingDay) return { breakMinutes: 0, scheduledHours: 0 };
 
-  return shift.breakMinutes;
+  const span =
+    parseTimeToMinutes(shift.endTime) - parseTimeToMinutes(shift.startTime) - shift.breakMinutes;
+
+  return {
+    breakMinutes: shift.breakMinutes,
+    scheduledHours: Math.max(0, Math.round((span / 60) * 100) / 100),
+  };
+}
+
+/** Hours worked beyond what the schedule expected, never negative. */
+function overtimeFrom(workedHours: number, scheduledHours: number): number {
+  return Math.max(0, Math.round((workedHours - scheduledHours) * 100) / 100);
 }
 
 export interface AttendanceFilters {
@@ -158,11 +182,9 @@ export class AttendanceService {
     }
 
     const checkOut = input.checkOut || '18:00';
-    const workedHours = calculateWorkedHours(
-      input.checkIn,
-      checkOut,
-      await breakMinutesFor(targetEmployeeId, dateMidnight)
-    );
+    const shift = await shiftContextFor(targetEmployeeId, dateMidnight);
+    const workedHours = calculateWorkedHours(input.checkIn, checkOut, shift.breakMinutes);
+    const overtimeHours = overtimeFrom(workedHours, shift.scheduledHours);
 
     // Auto-detect status if not supplied: standard check-in is 09:00
     let status = input.status || AttendanceStatus.PRESENT;
@@ -180,6 +202,7 @@ export class AttendanceService {
         checkIn: input.checkIn,
         checkOut,
         workedHours,
+        overtimeHours,
         status,
         notes: input.notes,
       },
@@ -228,11 +251,13 @@ export class AttendanceService {
 
     const checkIn = canCorrect ? input.checkIn || existing.checkIn : existing.checkIn;
     const checkOut = input.checkOut !== undefined ? (input.checkOut || existing.checkOut) : existing.checkOut;
-    const workedHours = calculateWorkedHours(
-      checkIn,
-      checkOut,
-      await breakMinutesFor(existing.employeeId, existing.date)
-    );
+    const shift = await shiftContextFor(existing.employeeId, existing.date);
+    const workedHours = calculateWorkedHours(checkIn, checkOut, shift.breakMinutes);
+    const overtimeHours = overtimeFrom(workedHours, shift.scheduledHours);
+
+    // An employee closing out their own open record is normal clocking. Anything
+    // an authorised user changes is a correction, which the dashboard reports.
+    const manuallyEdited = existing.manuallyEdited || canCorrect;
 
     const updated = await prisma.attendance.update({
       where: { id },
@@ -240,6 +265,8 @@ export class AttendanceService {
         checkIn,
         checkOut,
         workedHours,
+        overtimeHours,
+        manuallyEdited,
         status: input.status !== undefined ? input.status : existing.status,
         notes: input.notes !== undefined ? input.notes : existing.notes,
       },

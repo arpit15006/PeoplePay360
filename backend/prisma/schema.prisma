@@ -98,6 +98,9 @@ model User {
   password     String
   name         String
   role         Role      @default(EMPLOYEE)
+  // Admin can suspend access without deleting the account and losing its
+  // history. Login and every authenticated request reject an inactive user.
+  isActive     Boolean   @default(true)
   employeeId   String?   @unique
   employee     Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   createdAt    DateTime  @default(now())
@@ -208,8 +211,14 @@ model Attendance {
   date        DateTime
   checkIn     String           // "09:05"
   checkOut    String           // "18:02"
-  workedHours Float            // 8.95
+  workedHours Float            // 8.95, net of the unpaid meal break
+  // Hours beyond the scheduled day. Derived on write from the employee's
+  // schedule, so the dashboard can report overtime without recomputing it.
+  overtimeHours Float          @default(0)
   status      AttendanceStatus @default(PRESENT)
+  // Set when an authorised user corrects a record rather than the employee
+  // clocking it. The dashboard reports these as manual edits.
+  manuallyEdited Boolean       @default(false)
   notes       String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt

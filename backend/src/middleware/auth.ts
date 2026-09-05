@@ -64,8 +64,16 @@ async function loadUser(userId: string): Promise<AuthUser | null> {
       name: true,
       role: true,
       employeeId: true,
+      isActive: true,
     },
   });
+
+  // A suspended account must lose access immediately, not when its token
+  // expires. Treated as absent so an already-issued token stops working.
+  if (user && !user.isActive) {
+    userCache.delete(userId);
+    return null;
+  }
 
   if (!user) {
     // Negative results are not cached, so a deleted user cannot be resurrected
@@ -74,7 +82,8 @@ async function loadUser(userId: string): Promise<AuthUser | null> {
     return null;
   }
 
-  userCache.set(userId, { user, expiresAt: now + TTL_MS });
+  const { isActive: _isActive, ...authUser } = user;
+  userCache.set(userId, { user: authUser, expiresAt: now + TTL_MS });
 
   // Opportunistic sweep so the map cannot grow without bound.
   if (userCache.size > 500) {
@@ -83,7 +92,7 @@ async function loadUser(userId: string): Promise<AuthUser | null> {
     }
   }
 
-  return user;
+  return authUser;
 }
 
 /**

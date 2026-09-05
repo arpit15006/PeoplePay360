@@ -27,6 +27,8 @@ import { money, type DashboardFilters } from '@/types/dashboard'
 import { monthOptions } from '@/types/payrun'
 
 import SalaryCostChart from './SalaryCostChart'
+import SalaryTrendChart from './SalaryTrendChart'
+import AttendanceOverview from './AttendanceOverview'
 import WorkforceBreakdownChart from './WorkforceBreakdownChart'
 
 const EMPLOYEE_TYPES = [
@@ -223,6 +225,11 @@ export function PayrollDashboard() {
               timeOff={data.timeOffOverview}
               className='h-full'
             />
+          </div>
+
+          <div className='grid items-start gap-6 lg:grid-cols-2'>
+            <SalaryTrendChart points={data.salaryTrend} />
+            <AttendanceOverview attendance={data.attendanceHealth} />
           </div>
         </>
       )}

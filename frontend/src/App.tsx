@@ -19,6 +19,8 @@ import PayrunDetail from './components/payroll/PayrunDetail';
 import PayslipList from './components/payroll/PayslipList';
 import PayslipDetail from './components/payroll/PayslipDetail';
 import PayrollDashboard from './components/dashboard/PayrollDashboard';
+import UserManagement from './components/admin/UserManagement';
+import DepartmentsList from './components/departments/DepartmentsList';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -63,6 +65,26 @@ export default function App() {
                   element={
                     <ProtectedRoute>
                       <EmployeeForm />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Departments */}
+                <Route
+                  path="/departments"
+                  element={
+                    <ProtectedRoute>
+                      <DepartmentsList />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* User management — Admin only, per PRD section 3 */}
+                <Route
+                  path="/users"
+                  element={
+                    <ProtectedRoute allow={['ADMIN']}>
+                      <UserManagement />
                     </ProtectedRoute>
                   }
                 />

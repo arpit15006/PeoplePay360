@@ -15,6 +15,22 @@ export interface AttendanceHealth {
   halfDay: number;
   absent: number;
   totalLogs: number;
+  /** Hours logged beyond the scheduled day. */
+  overtimeHours: number;
+  /** Clocked in but never clocked out. */
+  missingCheckOuts: number;
+  /** Records an authorised user corrected rather than the employee clocking. */
+  manualEdits: number;
+  /** Percentage of logged days the employee actually attended. */
+  coverage: number;
+}
+
+/** One point on the monthly net salary trend. */
+export interface SalaryTrendPoint {
+  period: string;
+  totalNet: number;
+  totalGross: number;
+  payslipsCount: number;
 }
 
 export interface DepartmentSalaryCost {
@@ -43,6 +59,7 @@ export interface DashboardMetrics {
   kpis: DashboardKpis;
   attendanceHealth: AttendanceHealth;
   salaryCostByDepartment: DepartmentSalaryCost[];
+  salaryTrend: SalaryTrendPoint[];
   timeOffOverview: TimeOffOverviewRow[];
   alerts: DashboardAlert[];
 }

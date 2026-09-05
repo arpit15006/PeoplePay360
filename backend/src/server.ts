@@ -9,6 +9,7 @@ import { errorHandler } from './middleware/errorHandler';
 // Route imports
 import authRoutes from './routes/auth.routes';
 import employeesRoutes from './routes/employees.routes';
+import usersRoutes from './routes/users.routes';
 import departmentsRoutes from './routes/departments.routes';
 import contractsRoutes from './routes/contracts.routes';
 import schedulesRoutes from './routes/schedules.routes';
@@ -55,6 +56,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // ─── API Routes ──────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeesRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/contracts', contractsRoutes);
 app.use('/api/schedules', schedulesRoutes);
