@@ -1,39 +1,84 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { Role } from '@prisma/client';
 import { env } from '../config/env';
+import prisma from '../config/db';
+import { UnauthorizedError } from '../utils/errors';
+import { Role } from '@prisma/client';
 
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: Role;
-  employeeId?: string | null;
+  employeeId: string | null;
 }
 
-export interface AuthenticatedRequest extends Request {
-  user?: AuthUser;
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthUser;
+    }
+  }
+}
+
+interface JwtPayload {
+  userId: string;
+  iat: number;
+  exp: number;
 }
 
 /**
- * Verifies the session JWT from the httpOnly `token` cookie, falling back to an
- * `Authorization: Bearer` header. Attaches the decoded payload to `req.user`.
+ * JWT authentication middleware.
+ * Extracts token from Authorization header (Bearer <token>) or cookie.
+ * Loads user from DB and attaches to req.user.
  */
-export const authenticateJWT = (
-  req: AuthenticatedRequest,
-  res: Response,
+export async function authenticate(
+  req: Request,
+  _res: Response,
   next: NextFunction
-) => {
-  const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication required. No token provided.' });
-  }
-
+): Promise<void> {
   try {
-    req.user = jwt.verify(token, env.JWT_SECRET) as AuthUser;
-    return next();
-  } catch {
-    return res.status(401).json({ message: 'Invalid or expired session token.' });
+    let token: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) {
+      throw new UnauthorizedError('Authentication required. Please provide a valid token.');
+    }
+
+    const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        employeeId: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedError('User not found. Token may be invalid.');
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      next(err);
+    } else if ((err as any).name === 'JsonWebTokenError') {
+      next(new UnauthorizedError('Invalid token'));
+    } else if ((err as any).name === 'TokenExpiredError') {
+      next(new UnauthorizedError('Token has expired'));
+    } else {
+      next(err);
+    }
   }
-};
+}
