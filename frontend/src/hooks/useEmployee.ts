@@ -36,6 +36,7 @@ export function useUpdateEmployee(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', id] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }
@@ -47,6 +48,7 @@ export function useCreateEmployee() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['departments'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }

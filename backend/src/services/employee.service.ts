@@ -1,8 +1,9 @@
+import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { CreateEmployeeInput, UpdateEmployeeInput } from '../validators/employee.validator';
 import { NotFoundError, ConflictError, ForbiddenError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 
 export interface EmployeeFilters {
   q?: string;
@@ -193,6 +194,31 @@ export class EmployeeService {
       },
     });
 
+    // Auto-create or link User account so the new employee appears in User Management
+    try {
+      const normalizedEmail = employee.email.toLowerCase().trim();
+      const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (!existingUser) {
+        const passwordHash = await bcrypt.hash('password123', 10);
+        await prisma.user.create({
+          data: {
+            name: employee.name,
+            email: normalizedEmail,
+            password: passwordHash,
+            role: Role.EMPLOYEE,
+            employeeId: employee.id,
+          },
+        });
+      } else if (!existingUser.employeeId) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { employeeId: employee.id },
+        });
+      }
+    } catch (err) {
+      console.error('Auto-create user for employee failed:', err);
+    }
+
     return employee;
   }
 
@@ -226,6 +252,20 @@ export class EmployeeService {
         manager: { select: { id: true, name: true } },
       },
     });
+
+    if (input.name || input.email) {
+      try {
+        await prisma.user.updateMany({
+          where: { employeeId: id },
+          data: {
+            ...(input.name ? { name: input.name } : {}),
+            ...(input.email ? { email: input.email.toLowerCase().trim() } : {}),
+          },
+        });
+      } catch (err) {
+        console.error('Failed to sync employee changes to user account:', err);
+      }
+    }
 
     return updated;
   }
