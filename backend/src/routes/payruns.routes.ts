@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   listPayruns,
   getPayrun,
+  getPayrunWarnings,
   createPayrun,
   computePayrun,
   validatePayrun,
@@ -34,6 +35,13 @@ router.post(
   '/',
   authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   createPayrun
+);
+
+// Pre-finalisation warnings (duplicates, incomplete employee data)
+router.get(
+  '/:id/warnings',
+  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  getPayrunWarnings
 );
 
 // Compute payrun (Triggers calculation engine)

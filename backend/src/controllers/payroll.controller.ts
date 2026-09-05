@@ -29,6 +29,16 @@ export async function createPayrun(req: Request, res: Response, next: NextFuncti
   }
 }
 
+export async function getPayrunWarnings(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { collectPayrunWarnings } = await import('../payroll/payrunWarnings');
+    const warnings = await collectPayrunWarnings(req.params.id);
+    res.json({ success: true, count: warnings.length, data: warnings });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function computePayrun(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await PayrollService.computePayrun(req.params.id);

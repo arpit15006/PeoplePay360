@@ -104,6 +104,9 @@ export class PayrollService {
       include: {
         salaryStructure: { select: { id: true, name: true } },
         _count: { select: { payslips: true } },
+        // Net amounts only, so the list can show a period total without
+        // pulling every payslip line.
+        payslips: { select: { netSalary: true } },
       },
     });
   }

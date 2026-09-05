@@ -13,6 +13,11 @@ import TimeOffAllocations from './components/timeoff/TimeOffAllocations';
 import TimeOffTypes from './components/timeoff/TimeOffTypes';
 import SalaryStructures from './components/payroll/SalaryStructures';
 import SalaryRules from './components/payroll/SalaryRules';
+import PayrunList from './components/payroll/PayrunList';
+import PayrunWizard from './components/payroll/PayrunWizard';
+import PayrunDetail from './components/payroll/PayrunDetail';
+import PayslipList from './components/payroll/PayslipList';
+import PayslipDetail from './components/payroll/PayslipDetail';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -137,11 +142,46 @@ export default function App() {
 
                 {/* Payroll */}
                 <Route path="/payroll" element={<Navigate to="/payroll/payruns" replace />} />
-                <Route path="/payroll/payruns" element={soon('Payruns', '/payroll/payruns', PAYROLL_ROLES)} />
-                <Route path="/payroll/payruns/new" element={soon('Payrun Wizard', '/payroll/payruns/new', PAYROLL_ROLES)} />
-                <Route path="/payroll/payruns/:id" element={soon('Payrun Processing', '/payroll/payruns/:id', PAYROLL_ROLES)} />
-                <Route path="/payroll/payslips" element={soon('Payslips', '/payroll/payslips', PAYSLIP_ROLES)} />
-                <Route path="/payroll/payslips/:id" element={soon('Payslip Detail', '/payroll/payslips/:id', PAYSLIP_ROLES)} />
+                <Route
+                  path="/payroll/payruns"
+                  element={
+                    <ProtectedRoute allow={PAYROLL_ROLES}>
+                      <PayrunList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payroll/payruns/new"
+                  element={
+                    <ProtectedRoute allow={PAYROLL_ROLES}>
+                      <PayrunWizard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payroll/payruns/:id"
+                  element={
+                    <ProtectedRoute allow={PAYROLL_ROLES}>
+                      <PayrunDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payroll/payslips"
+                  element={
+                    <ProtectedRoute allow={PAYSLIP_ROLES}>
+                      <PayslipList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payroll/payslips/:id"
+                  element={
+                    <ProtectedRoute allow={PAYSLIP_ROLES}>
+                      <PayslipDetail />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/payroll/structures"
                   element={
