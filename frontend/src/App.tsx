@@ -11,6 +11,8 @@ import AttendanceList from './components/attendance/AttendanceList';
 import TimeOffRequests from './components/timeoff/TimeOffRequests';
 import TimeOffAllocations from './components/timeoff/TimeOffAllocations';
 import TimeOffTypes from './components/timeoff/TimeOffTypes';
+import SalaryStructures from './components/payroll/SalaryStructures';
+import SalaryRules from './components/payroll/SalaryRules';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -140,8 +142,22 @@ export default function App() {
                 <Route path="/payroll/payruns/:id" element={soon('Payrun Processing', '/payroll/payruns/:id', PAYROLL_ROLES)} />
                 <Route path="/payroll/payslips" element={soon('Payslips', '/payroll/payslips', PAYSLIP_ROLES)} />
                 <Route path="/payroll/payslips/:id" element={soon('Payslip Detail', '/payroll/payslips/:id', PAYSLIP_ROLES)} />
-                <Route path="/payroll/structures" element={soon('Salary Structures', '/payroll/structures', PAYROLL_ROLES)} />
-                <Route path="/payroll/rules" element={soon('Salary Rules', '/payroll/rules', PAYROLL_ROLES)} />
+                <Route
+                  path="/payroll/structures"
+                  element={
+                    <ProtectedRoute allow={PAYROLL_ROLES}>
+                      <SalaryStructures />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payroll/rules"
+                  element={
+                    <ProtectedRoute allow={PAYROLL_ROLES}>
+                      <SalaryRules />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Payroll Dashboard */}
                 <Route path="/dashboard" element={soon('Payroll Dashboard', '/dashboard', DASHBOARD_ROLES)} />
