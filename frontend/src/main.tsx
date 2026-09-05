@@ -6,6 +6,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { TooltipProvider } from './components/ui/tooltip';
+import { Toaster } from './components/ui/sonner';
 
 // Tailwind v4 + shadcn theme. Imported first: it declares the `legacy` cascade
 // layer, and its unlayered :root wins the token overlap (--primary, --accent).
@@ -31,6 +32,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           {/* Sidebar menu buttons render tooltips when collapsed to icons. */}
           <TooltipProvider>
             <App />
+            {/* Toast host for payrun actions (Compute, Validate, Mark Paid, Send). */}
+            <Toaster richColors position='top-right' />
           </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
