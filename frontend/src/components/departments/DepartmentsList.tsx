@@ -39,9 +39,14 @@ import { useAuth } from '@/context/AuthContext'
 import type { Department } from '@/types/department'
 import type { Role } from '@/types/user'
 
-/** Departments are HR master data, so the roles with CRUD over employees manage them. */
-const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
-/** Deleting is destructive and reserved for Admin, matching the API. */
+/**
+ * Section 3 lists the HR Manager's modules explicitly — Employees, Attendance,
+ * Contracts, Working Schedules and Time Off — and Departments is not among
+ * them. Only the Admin holds "full access to all modules and models", so the
+ * organisation's structure is theirs to change. Everyone still reads them,
+ * since department names label employees, contracts and the dashboard.
+ */
+const CAN_MANAGE: Role[] = ['ADMIN']
 const CAN_DELETE: Role[] = ['ADMIN']
 
 const NONE = 'none'

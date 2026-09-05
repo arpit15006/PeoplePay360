@@ -20,17 +20,12 @@ router.use(authenticate);
 router.get('/', listDepartments);
 router.get('/:id', getDepartment);
 
-// Departments are HR master data, so the roles with CRUD over employees and
-// contracts manage them too. An employee has no HR administration access.
-const HR_WRITE = [
-  Role.HR_MANAGER,
-  Role.HR_PAYROLL_USER,
-  Role.HR_PAYROLL_MANAGER,
-  Role.ADMIN,
-] as const;
-
-router.post('/', authorize(...HR_WRITE), createDepartment);
-router.put('/:id', authorize(...HR_WRITE), updateDepartment);
+// Section 3 lists each role's modules explicitly, and the HR Manager's list —
+// Employees, Attendance, Contracts, Working Schedules and Time Off — does not
+// include Departments. Only the Admin is given "full access to all modules and
+// models", so changing the organisation's structure is theirs alone.
+router.post('/', authorize(Role.ADMIN), createDepartment);
+router.put('/:id', authorize(Role.ADMIN), updateDepartment);
 router.delete('/:id', authorize(Role.ADMIN), deleteDepartment);
 
 export default router;
