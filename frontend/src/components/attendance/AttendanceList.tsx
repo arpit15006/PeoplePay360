@@ -32,13 +32,14 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { IconLogin2, IconLogout2, IconPencil, IconUpload, IconX } from '@tabler/icons-react'
+import { IconPencil, IconUpload, IconX } from '@tabler/icons-react'
 
 import { DataTablePaginationBase } from '@/components/shadcn-studio/data-table/data-table-parts'
 import BulkImportDialog from '@/components/bulk/BulkImportDialog'
 import { attendanceImportConfig } from '@/components/bulk/importConfigs'
 import { useImportContext } from '@/hooks/useImportContext'
 import { useClientPagination } from '@/hooks/useClientPagination'
+import WorkSessionCard from '@/components/attendance/WorkSessionCard'
 import { useAttendance, useCreateAttendance, useUpdateAttendance } from '@/hooks/useAttendance'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -55,18 +56,9 @@ const CAN_CORRECT: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGE
 
 const STATUS_CLASSES: Record<AttendanceStatus, string> = {
   PRESENT: 'border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400',
-  LATE: 'border-none bg-amber-600/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400',
   HALF_DAY: 'border-none bg-sky-600/10 text-sky-600 dark:bg-sky-400/10 dark:text-sky-400',
   ABSENT: 'border-none bg-red-600/10 text-red-600 dark:bg-red-400/10 dark:text-red-400'
 }
-
-const todayIso = () => {
-  const now = new Date()
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())).toISOString()
-}
-
-const nowTime = () =>
-  new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
@@ -169,7 +161,6 @@ export function AttendanceList() {
   const canCorrect = !!user && CAN_CORRECT.includes(user.role)
   const [importing, setImporting] = useState(false)
   const importContext = useImportContext()
-  const isEmployee = user?.role === 'EMPLOYEE'
 
   const rows = useMemo(() => {
     const filtered =
@@ -182,11 +173,6 @@ export function AttendanceList() {
   const { page, pageIndex, pageSize, pageCount, total, onPageChange, onPageSizeChange } =
     useClientPagination(rows, 25)
 
-  // The employee's record for today drives the check in / check out button.
-  const today = formatAttendanceDate(todayIso())
-  const myToday = records.find(
-    r => r.employeeId === user?.employeeId && formatAttendanceDate(r.date) === today
-  )
 
   const openCorrection = (record: AttendanceRow) => {
     setEditing(record)
@@ -207,17 +193,6 @@ export function AttendanceList() {
     setEditing(null)
   }
 
-  const checkIn = () =>
-    createAttendance.mutate({
-      employeeId: user!.employeeId!,
-      date: todayIso(),
-      checkIn: nowTime(),
-      status: 'PRESENT'
-    })
-
-  const checkOut = () =>
-    myToday && updateAttendance.mutate({ id: myToday.id, body: { checkOut: nowTime() } })
-
   return (
     <div className='space-y-6'>
       <div className='flex flex-wrap items-start justify-between gap-4'>
@@ -236,27 +211,11 @@ export function AttendanceList() {
           </Button>
         )}
 
-        {/* Daily quick action — PRD Screen 6 */}
-        {isEmployee && user?.employeeId && (
-          <div className='flex items-center gap-2'>
-            {!myToday ? (
-              <Button onClick={checkIn} disabled={createAttendance.isPending}>
-                <IconLogin2 />
-                Check In
-              </Button>
-            ) : !myToday.checkOut ? (
-              <Button onClick={checkOut} disabled={updateAttendance.isPending}>
-                <IconLogout2 />
-                Check Out
-              </Button>
-            ) : (
-              <Badge className='border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400'>
-                Checked out at {myToday.checkOut}
-              </Badge>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* The day is a running session now rather than two typed-in times, so
+          the card carries the clock and this screen stays the record of it. */}
+      <WorkSessionCard />
 
       {(createAttendance.isError || updateAttendance.isError) && (
         <div className='border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>

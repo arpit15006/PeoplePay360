@@ -206,13 +206,14 @@ export const attendanceImportConfig: ImportConfig = {
     { key: 'date', label: 'Date', required: true, samples: ['2026-03-02', '02/03/2026'] },
     { key: 'checkin', label: 'Check in', required: true, samples: ['09:00', '09:12'] },
     { key: 'checkout', label: 'Check out', required: false, samples: ['18:00', '18:30'] },
-    { key: 'status', label: 'Status', required: false, samples: ['', 'LATE'] },
+    { key: 'status', label: 'Status', required: false, samples: ['', 'HALF_DAY'] },
     { key: 'notes', label: 'Notes', required: false, samples: ['', ''] }
   ],
   validate: (rows, context) => {
     const problems = new Map<number, string>()
     const seen = new Set<string>()
-    const statuses = ['PRESENT', 'LATE', 'HALF_DAY', 'ABSENT']
+    // Late is derived from the check-in time against the shift, not imported.
+    const statuses = ['PRESENT', 'HALF_DAY', 'ABSENT']
     const tomorrow = Date.now() + 24 * 60 * 60 * 1000
 
     for (const row of rows) {

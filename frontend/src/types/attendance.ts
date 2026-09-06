@@ -1,4 +1,5 @@
-export type AttendanceStatus = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT';
+/** Late is a flag on the record now, not a status — see AttendanceRow.wasLate. */
+export type AttendanceStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT';
 
 export interface AttendanceRow {
   id: string;
@@ -27,7 +28,6 @@ export type AttendanceInput = {
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   PRESENT: 'Present',
-  LATE: 'Late',
   HALF_DAY: 'Half Day',
   ABSENT: 'Absent',
 };

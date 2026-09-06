@@ -33,7 +33,9 @@ export function workedDaysFrom(
 ): WorkedDaysResult {
   let workedDays = 0;
   for (const att of attendances) {
-    if (att.status === AttendanceStatus.PRESENT || att.status === AttendanceStatus.LATE) {
+    // Lateness is a flag on the record now, not a status of its own: someone
+    // who arrived late still worked the day, and a late half day is still half.
+    if (att.status === AttendanceStatus.PRESENT) {
       workedDays += 1;
     } else if (att.status === AttendanceStatus.HALF_DAY) {
       workedDays += 0.5;

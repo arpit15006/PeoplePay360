@@ -55,6 +55,11 @@ export function AppBreadcrumb() {
     return {
       label: labelFor(segment),
       href,
+      // On an employee's own profile the remap above sends both "/employees"
+      // and "/employees/<id>" to the same place, so the href is no longer
+      // unique. The path it was built from still is, and that is what keys the
+      // list.
+      key: rawHref,
       isLast: index === segments.length - 1
     }
   })
@@ -72,7 +77,7 @@ export function AppBreadcrumb() {
         </BreadcrumbItem>
 
         {crumbs.map(crumb => (
-          <span key={crumb.href} className='contents'>
+          <span key={crumb.key} className='contents'>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               {crumb.isLast ? (

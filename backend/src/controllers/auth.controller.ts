@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/db';
 import { env } from '../config/env';
 import { UnauthorizedError, ValidationError } from '../utils/errors';
+import { SessionEnd } from '@prisma/client';
+import { AttendanceSessionService } from '../services/attendanceSession.service';
 
 /**
  * POST /api/auth/login
@@ -182,7 +184,19 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
  * POST /api/auth/logout
  * Clears the auth cookie
  */
-export async function logout(_req: Request, res: Response): Promise<void> {
+export async function logout(req: Request, res: Response): Promise<void> {
+  // Nobody is working while signed out, so the clock stops here too. Recorded
+  // as SIGN_OUT rather than USER so the day's timeline says how it ended.
+  // A failure to close the session must not trap someone in a signed-in state,
+  // hence the catch: the sweeper will close it within the timeout anyway.
+  if (req.user?.employeeId) {
+    try {
+      await AttendanceSessionService.stop(req.user.employeeId, SessionEnd.SIGN_OUT);
+    } catch (err) {
+      console.warn('[Auth] could not close the working session on sign out:', (err as Error).message);
+    }
+  }
+
   res.clearCookie('token');
   res.json({ success: true, message: 'Logged out successfully' });
 }

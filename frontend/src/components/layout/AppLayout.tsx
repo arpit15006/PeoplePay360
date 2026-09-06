@@ -1,6 +1,17 @@
+import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -38,9 +49,11 @@ import {
   IconCalendarClock,
   IconCash,
   IconChevronRight,
-  IconLogout
+  IconLogout,
+  IconAlertTriangle
 } from '@tabler/icons-react'
 
+import { attendanceSessionApi, type StopPreview } from '@/api/attendanceSession'
 import { useAuth } from '@/context/AuthContext'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { ROLE_LABELS, type Role } from '@/types/user'
@@ -259,9 +272,35 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogout = async () => {
+  /**
+   * Signing out stops the clock, so it asks first when the day is still
+   * running — otherwise someone closing the tab at lunchtime silently records
+   * a half day. The preview is fetched rather than assumed: the server decides
+   * what today would be worth.
+   */
+  const [signOutPreview, setSignOutPreview] = useState<StopPreview | null>(null)
+  const [checkingSignOut, setCheckingSignOut] = useState(false)
+
+  const signOut = async () => {
+    setSignOutPreview(null)
     await logout()
     navigate('/login', { replace: true })
+  }
+
+  const handleLogout = async () => {
+    if (!user?.employeeId) return signOut()
+    setCheckingSignOut(true)
+    try {
+      const preview = await attendanceSessionApi.previewStop()
+      // Nothing running means nothing to warn about.
+      if (!preview.running) return signOut()
+      setSignOutPreview(preview)
+    } catch {
+      // A failed check must never trap someone in the app.
+      await signOut()
+    } finally {
+      setCheckingSignOut(false)
+    }
   }
 
   return (
@@ -305,6 +344,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               variant='ghost'
               size='icon-sm'
               onClick={handleLogout}
+              disabled={checkingSignOut}
               className='size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0'
               aria-label='Sign out'
               title='Sign out'
@@ -313,6 +353,51 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </SidebarFooter>
+
+        {/* Signing out ends the working day, so it says what that would record. */}
+        <AlertDialog
+          open={Boolean(signOutPreview)}
+          onOpenChange={open => !open && setSignOutPreview(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign out and end your day?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className='space-y-3'>
+                  <p>You are still {signOutPreview?.running === 'BREAK' ? 'on a break' : 'clocked in'}. Signing out stops the clock.</p>
+                  <div className='flex justify-between text-sm'>
+                    <span>Worked today</span>
+                    <span className='text-foreground font-medium tabular-nums'>
+                      {signOutPreview?.workedLabel}
+                    </span>
+                  </div>
+                  <div className='flex justify-between text-sm'>
+                    <span>Break</span>
+                    <span className='text-foreground font-medium tabular-nums'>
+                      {signOutPreview?.breakLabel}
+                    </span>
+                  </div>
+                  {signOutPreview?.warn && (
+                    <div className='border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-md border p-3 text-sm'>
+                      <IconAlertTriangle className='mt-0.5 size-4 shrink-0' />
+                      <span>
+                        This would record today as{' '}
+                        <strong>
+                          {signOutPreview.status === 'HALF_DAY' ? 'Half Day' : 'Absent'}
+                        </strong>
+                        .
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay signed in</AlertDialogCancel>
+              <AlertDialogAction onClick={signOut}>Sign out</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Draggable edge so the sidebar can be collapsed from the rail too. */}
         <SidebarRail />

@@ -1,4 +1,5 @@
 import prisma from '../config/db';
+import { LATE_GRACE_MINUTES } from '../attendance/sessionRules';
 import { CreateAttendanceInput, UpdateAttendanceInput } from '../validators/attendance.validator';
 import { NotFoundError, ForbiddenError, ConflictError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
@@ -22,6 +23,24 @@ interface ShiftContext {
   breakMinutes: number;
   /** Hours the schedule expects that day, net of the break. 0 on a day off. */
   scheduledHours: number;
+  /** The shift's own start time, so lateness is judged against it and not 09:00. */
+  startTime: string | null;
+}
+
+/**
+ * Was this arrival late against the shift's own start time?
+ *
+ * Replaces the hardcoded 09:15 the two manual-entry paths each carried: a
+ * schedule that starts at 10:00 should not mark 09:30 as late. Lateness is a
+ * flag on the record rather than a status, so a late day still reports whether
+ * it was worked.
+ */
+export function lateAgainst(checkIn: string, shiftStart: string | null): boolean {
+  if (!shiftStart) return false;
+  const [ch, cm] = checkIn.split(':').map(Number);
+  const [sh, sm] = shiftStart.split(':').map(Number);
+  if ([ch, cm, sh, sm].some(Number.isNaN)) return false;
+  return ch * 60 + cm > sh * 60 + sm + LATE_GRACE_MINUTES;
 }
 
 export async function shiftContextFor(employeeId: string, date: Date): Promise<ShiftContext> {
@@ -49,7 +68,9 @@ export async function shiftContextFor(employeeId: string, date: Date): Promise<S
   // A shift flagged as non-working carries no meal break to deduct, but someone
   // who clocked in anyway still worked, so the span is kept whole. With no
   // scheduled hours, every hour worked that day counts as overtime.
-  if (!shift || !shift.isWorkingDay) return { breakMinutes: 0, scheduledHours: 0 };
+  if (!shift || !shift.isWorkingDay) {
+    return { breakMinutes: 0, scheduledHours: 0, startTime: shift?.startTime ?? null };
+  }
 
   const span =
     parseTimeToMinutes(shift.endTime) - parseTimeToMinutes(shift.startTime) - shift.breakMinutes;
@@ -57,6 +78,7 @@ export async function shiftContextFor(employeeId: string, date: Date): Promise<S
   return {
     breakMinutes: shift.breakMinutes,
     scheduledHours: Math.max(0, Math.round((span / 60) * 100) / 100),
+    startTime: shift.startTime,
   };
 }
 
@@ -192,14 +214,10 @@ export class AttendanceService {
       : 0;
     const overtimeHours = checkOut ? overtimeFrom(workedHours, shift.scheduledHours) : 0;
 
-    // Auto-detect status if not supplied: standard check-in is 09:00
-    let status = input.status || AttendanceStatus.PRESENT;
-    if (!input.status) {
-      const [h, m] = input.checkIn.split(':').map(Number);
-      if (h > 9 || (h === 9 && m > 15)) {
-        status = AttendanceStatus.LATE;
-      }
-    }
+    // A late arrival is recorded as a flag beside the status, not instead of
+    // it, so a manual entry keeps saying whether the day was worked.
+    const status = input.status || AttendanceStatus.PRESENT;
+    const wasLate = lateAgainst(input.checkIn, shift.startTime);
 
     const created = await prisma.attendance.create({
       data: {
@@ -210,6 +228,7 @@ export class AttendanceService {
         workedHours,
         overtimeHours,
         status,
+        wasLate,
         notes: input.notes,
       },
       include: {

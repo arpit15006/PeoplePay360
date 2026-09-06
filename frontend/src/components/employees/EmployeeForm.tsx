@@ -23,6 +23,7 @@ import {
 } from '@tabler/icons-react'
 
 import EmployeeStatusBadge from '@/components/employees/EmployeeStatusBadge'
+import WorkSessionCard from '@/components/attendance/WorkSessionCard'
 import { useAuth } from '@/context/AuthContext'
 import {
   useDepartments,
@@ -67,6 +68,7 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
   // The create route is its own path, so it carries no :id param to read;
   // the mode prop is what distinguishes it.
   const isNew = mode === 'create' || id === 'new'
+  const isOwnProfile = !isNew && Boolean(user?.employeeId) && user?.employeeId === id
   const { data: employee, isLoading, isError, error } = useEmployee(isNew ? undefined : id)
   const { data: counts } = useEmployeeRelated(id)
   const { data: departments = [] } = useDepartments()
@@ -236,6 +238,12 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
             <Button onClick={() => setIsEditing(true)}>Edit</Button>
           ))}
       </div>
+
+      {/* An employee lands here after signing in, so the day starts here rather
+          than a screen away. Only on their own record: the card acts on the
+          signed-in person, and showing it on a colleague's profile would
+          suggest otherwise. */}
+      {isOwnProfile && <WorkSessionCard />}
 
       {updateEmployee.isError && (
         <div className='border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>

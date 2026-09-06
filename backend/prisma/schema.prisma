@@ -48,9 +48,11 @@ enum ScheduleType {
   SHIFT
 }
 
+/// Late is no longer a status of its own — it is Attendance.wasLate, so a day
+/// can be both late and a half day, and every status still says whether the
+/// day was worked.
 enum AttendanceStatus {
   PRESENT
-  LATE
   HALF_DAY
   ABSENT
 }
@@ -221,6 +223,51 @@ model DailySchedule {
   @@map("daily_schedules")
 }
 
+enum SessionKind {
+  WORK
+  BREAK
+}
+
+/// Why a segment stopped — the difference between leaving and losing the connection.
+enum SessionEnd {
+  USER
+  SIGN_OUT
+  TIMEOUT
+  MIDNIGHT
+}
+
+/// One continuous stretch of a working day: at a desk, or on a break.
+///
+/// Attendance keeps one row per employee per day and can hold only a single
+/// check-in and check-out, but a real day pauses for lunch, drops off the wifi
+/// and comes back. Those segments live here, and the parent row stays the
+/// summary payroll and the dashboard already read.
+///
+/// Every timestamp is written by the server. The browser posts events and never
+/// reports elapsed time, so moving the system clock earns nobody an hour.
+model AttendanceSession {
+  id           String      @id @default(uuid())
+  attendanceId String
+  attendance   Attendance  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  kind         SessionKind @default(WORK)
+  startedAt    DateTime
+  /// Null while the segment is still running.
+  endedAt      DateTime?
+  endedBy      SessionEnd?
+  /// Last sign of life from the browser. A segment that goes quiet is closed
+  /// here rather than at the moment it is noticed, so unevidenced time is never
+  /// credited.
+  lastHeartbeatAt DateTime
+  /// Asked for when a segment was cut short by a timeout, and shown to HR.
+  reason       String?
+  createdAt    DateTime    @default(now())
+
+  @@index([attendanceId])
+  @@index([endedAt])
+
+  @@map("attendance_sessions")
+}
+
 model Attendance {
   id          String           @id @default(uuid())
   employeeId  String
@@ -233,10 +280,15 @@ model Attendance {
   // schedule, so the dashboard can report overtime without recomputing it.
   overtimeHours Float          @default(0)
   status      AttendanceStatus @default(PRESENT)
+  /// Derived from the first session against the shift's start time. Kept as a
+  /// flag rather than a status so a day can be both late and a half day, and
+  /// so the status set stays Present / Half Day / Absent.
+  wasLate     Boolean          @default(false)
   // Set when an authorised user corrects a record rather than the employee
   // clocking it. The dashboard reports these as manual edits.
   manuallyEdited Boolean       @default(false)
   notes       String?
+  sessions    AttendanceSession[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 

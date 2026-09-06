@@ -4,6 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { initSocket } from './socket';
+import { startAttendanceJobs } from './attendance/jobs';
 import { errorHandler } from './middleware/errorHandler';
 
 // Route imports
@@ -76,6 +77,9 @@ const PORT = parseInt(env.PORT, 10) || 5000;
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`🚀 PeoplePay360 Backend API running on http://localhost:${PORT}`);
+    // Closing stale sessions and marking missed days only makes sense once
+    // this process is the one serving requests.
+    startAttendanceJobs();
   });
 }
 

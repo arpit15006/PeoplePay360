@@ -96,6 +96,7 @@ export class DashboardService {
             checkOut: true,
             overtimeHours: true,
             manuallyEdited: true,
+      wasLate: true,
           },
         }),
 
@@ -150,7 +151,9 @@ export class DashboardService {
 
     const attendanceHealth = {
       present: attendances.filter((a) => a.status === AttendanceStatus.PRESENT).length,
-      late: attendances.filter((a) => a.status === AttendanceStatus.LATE).length,
+      // Lateness moved to a flag, so a late day is now counted alongside
+      // whatever status it earned rather than instead of one.
+      late: attendances.filter((a) => a.wasLate).length,
       halfDay: attendances.filter((a) => a.status === AttendanceStatus.HALF_DAY).length,
       absent: attendances.filter((a) => a.status === AttendanceStatus.ABSENT).length,
       totalLogs,

@@ -1,7 +1,7 @@
 import prisma from '../config/db';
 import { AttendanceStatus } from '@prisma/client';
 import { calculateWorkedHours } from '../utils/dates';
-import { shiftContextFor, overtimeFrom } from './attendance.service';
+import { shiftContextFor, overtimeFrom, lateAgainst } from './attendance.service';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 import { BulkImportResult, lookupKey, rowError } from './bulkImport.types';
 
@@ -205,12 +205,9 @@ export async function bulkImportAttendance(
         : 0;
       const overtimeHours = entry.checkOut ? overtimeFrom(workedHours, shift.scheduledHours) : 0;
 
-      // Same 09:15 grace the single-entry path applies when no status is given.
-      let status = entry.status ?? AttendanceStatus.PRESENT;
-      if (!entry.status) {
-        const [h, m] = entry.checkIn.split(':').map(Number);
-        if (h > 9 || (h === 9 && m > 15)) status = AttendanceStatus.LATE;
-      }
+      // Same grace the single-entry path applies, recorded as a flag now.
+      const status = entry.status ?? AttendanceStatus.PRESENT;
+      const wasLate = lateAgainst(entry.checkIn, shift.startTime);
 
       const created = await prisma.attendance.create({
         data: {
@@ -221,6 +218,7 @@ export async function bulkImportAttendance(
           workedHours,
           overtimeHours,
           status,
+          wasLate,
           notes: entry.notes,
         },
       });
