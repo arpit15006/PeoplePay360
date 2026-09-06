@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { DashboardService } from '../services/dashboard.service';
+import { AuthUser } from '../middleware/auth';
 
 export async function getDashboardMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -9,7 +10,10 @@ export async function getDashboardMetrics(req: Request, res: Response, next: Nex
       employeeType: req.query.employeeType as string | undefined,
     };
 
-    const metrics = await DashboardService.getMetrics(filters);
+    // The role decides which action prompts are worth raising, so it travels
+    // with the filters rather than being applied after the fact in the browser.
+    const user = (req as Request & { user?: AuthUser }).user;
+    const metrics = await DashboardService.getMetrics(filters, user?.role);
     res.json({ success: true, data: metrics });
   } catch (err) {
     next(err);

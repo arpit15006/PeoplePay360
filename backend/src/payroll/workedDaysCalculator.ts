@@ -10,27 +10,27 @@ export interface WorkedDaysResult {
   standardWorkingDays: number;
 }
 
+/** The shape the rules below need, so one employee's rows and a whole payrun's fit alike. */
+export interface AttendanceLike {
+  status: AttendanceStatus;
+}
+export interface TimeOffLike {
+  duration: number;
+  timeOffType: { name: string };
+}
+
 /**
- * Calculates worked days and leave days for an employee during a payrun period.
+ * The worked-days rules themselves, with no database access.
+ *
+ * A payrun computes these for everyone at once from rows fetched in a single
+ * query, while a single employee still goes through the async wrapper below.
+ * Both share this function so the two paths cannot drift apart.
  */
-export async function calculateEmployeeWorkedDays(
-  employeeId: string,
-  periodStartDate: Date,
-  periodEndDate: Date
-): Promise<WorkedDaysResult> {
-  const standardWorkingDays = getWorkingDaysInRange(periodStartDate, periodEndDate);
-
-  // 1. Fetch attendance records in period
-  const attendances = await prisma.attendance.findMany({
-    where: {
-      employeeId,
-      date: {
-        gte: periodStartDate,
-        lte: periodEndDate,
-      },
-    },
-  });
-
+export function workedDaysFrom(
+  attendances: AttendanceLike[],
+  timeOffRequests: TimeOffLike[],
+  standardWorkingDays: number
+): WorkedDaysResult {
   let workedDays = 0;
   for (const att of attendances) {
     if (att.status === AttendanceStatus.PRESENT || att.status === AttendanceStatus.LATE) {
@@ -39,17 +39,6 @@ export async function calculateEmployeeWorkedDays(
       workedDays += 0.5;
     }
   }
-
-  // 2. Fetch approved time-off requests overlapping this period
-  const timeOffRequests = await prisma.timeOffRequest.findMany({
-    where: {
-      employeeId,
-      status: TimeOffStatus.APPROVED,
-      startDate: { lte: periodEndDate },
-      endDate: { gte: periodStartDate },
-    },
-    include: { timeOffType: true },
-  });
 
   let paidLeaveDays = 0;
   let unpaidDays = 0;
@@ -70,11 +59,33 @@ export async function calculateEmployeeWorkedDays(
 
   const totalPayableDays = Math.min(standardWorkingDays, workedDays + paidLeaveDays);
 
-  return {
-    workedDays,
-    paidLeaveDays,
-    unpaidDays,
-    totalPayableDays,
-    standardWorkingDays,
-  };
+  return { workedDays, paidLeaveDays, unpaidDays, totalPayableDays, standardWorkingDays };
+}
+
+/**
+ * Calculates worked days and leave days for an employee during a payrun period.
+ */
+export async function calculateEmployeeWorkedDays(
+  employeeId: string,
+  periodStartDate: Date,
+  periodEndDate: Date
+): Promise<WorkedDaysResult> {
+  const standardWorkingDays = getWorkingDaysInRange(periodStartDate, periodEndDate);
+
+  const [attendances, timeOffRequests] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { employeeId, date: { gte: periodStartDate, lte: periodEndDate } },
+    }),
+    prisma.timeOffRequest.findMany({
+      where: {
+        employeeId,
+        status: TimeOffStatus.APPROVED,
+        startDate: { lte: periodEndDate },
+        endDate: { gte: periodStartDate },
+      },
+      include: { timeOffType: true },
+    }),
+  ]);
+
+  return workedDaysFrom(attendances, timeOffRequests, standardWorkingDays);
 }

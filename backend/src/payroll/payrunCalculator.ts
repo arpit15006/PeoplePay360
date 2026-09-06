@@ -1,9 +1,10 @@
 import prisma from '../config/db';
 import { NotFoundError, ValidationError } from '../utils/errors';
-import { resolveEmployeeContract } from './contractResolver';
-import { calculateEmployeeWorkedDays } from './workedDaysCalculator';
+import { pickApplicableContract } from './contractResolver';
+import { workedDaysFrom } from './workedDaysCalculator';
+import { getWorkingDaysInRange } from '../utils/dates';
 import { executeSalaryRules } from './salaryRuleEngine';
-import { PayrunStatus, PayslipStatus } from '@prisma/client';
+import { Prisma, PayrunStatus, PayslipStatus, RuleCategory, TimeOffStatus } from '@prisma/client';
 import { emitEvent, SocketEvents } from '../socket/emitter';
 import { STRUCTURE_ACTIVE } from '../services/salaryStructure.service';
 
@@ -51,18 +52,92 @@ export class PayrunCalculator {
       throw new ValidationError(`Salary structure '${payrun.salaryStructure.name}' has no active rules`);
     }
 
-    const computedPayslips = [];
+    /**
+     * Everything the whole payrun needs, in three queries instead of three per
+     * employee.
+     *
+     * The old loop issued a contract lookup, an attendance lookup and a
+     * time-off lookup for each person, then opened an interactive transaction
+     * to write their lines — roughly eight sequential round trips each. Against
+     * a hosted database that was about a second per employee and grew straight
+     * up with headcount. The work itself is arithmetic; it was the waiting that
+     * cost. Fetch once for everyone, compute in memory, write once.
+     */
+    const employeeIds = [...new Set(payrun.payslips.map((p) => p.employeeId))];
 
-    // Process each payslip in the payrun
+    const [contractRows, attendanceRows, timeOffRows] = await Promise.all([
+      prisma.contract.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          startDate: { lte: payrun.periodEndDate },
+          OR: [{ endDate: null }, { endDate: { gte: payrun.periodStartDate } }],
+        },
+        include: {
+          salaryStructure: { select: { id: true, name: true, status: true } },
+        },
+      }),
+      prisma.attendance.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          date: { gte: payrun.periodStartDate, lte: payrun.periodEndDate },
+        },
+        select: { employeeId: true, status: true },
+      }),
+      prisma.timeOffRequest.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          status: TimeOffStatus.APPROVED,
+          startDate: { lte: payrun.periodEndDate },
+          endDate: { gte: payrun.periodStartDate },
+        },
+        select: { employeeId: true, duration: true, timeOffType: { select: { name: true } } },
+      }),
+    ]);
+
+    const groupBy = <T extends { employeeId: string }>(rows: T[]) => {
+      const map = new Map<string, T[]>();
+      for (const row of rows) {
+        const bucket = map.get(row.employeeId);
+        if (bucket) bucket.push(row);
+        else map.set(row.employeeId, [row]);
+      }
+      return map;
+    };
+
+    const contractsByEmployee = groupBy(contractRows);
+    const attendanceByEmployee = groupBy(attendanceRows);
+    const timeOffByEmployee = groupBy(timeOffRows);
+
+    // The same for everyone in the payrun, so it is worked out once.
+    const standardWorkingDays = getWorkingDaysInRange(
+      payrun.periodStartDate,
+      payrun.periodEndDate
+    );
+
+    const computedIds: string[] = [];
+    const lineRows: {
+      payslipId: string;
+      code: string;
+      name: string;
+      category: RuleCategory;
+      sequence: number;
+      amount: number;
+    }[] = [];
+    const payslipUpdates: {
+      id: string;
+      workedDays: number;
+      grossSalary: number;
+      totalDeductions: number;
+      netSalary: number;
+    }[] = [];
+
+    // Same order as before, so the same employee is named if one has to be
+    // rejected for sitting on a retired structure.
     for (const payslip of payrun.payslips) {
       const employeeId = payslip.employeeId;
 
       // 1. Resolve applicable contract
-      const contract = await resolveEmployeeContract(
-        employeeId,
-        payrun.periodStartDate,
-        payrun.periodEndDate
-      );
+      const contract = pickApplicableContract(contractsByEmployee.get(employeeId) ?? []);
 
       if (!contract) {
         console.warn(`[Payroll Warning] No active contract found for employee ${employeeId} in period`);
@@ -83,10 +158,10 @@ export class PayrunCalculator {
       }
 
       // 2. Calculate worked days & leaves
-      const workedResult = await calculateEmployeeWorkedDays(
-        employeeId,
-        payrun.periodStartDate,
-        payrun.periodEndDate
+      const workedResult = workedDaysFrom(
+        attendanceByEmployee.get(employeeId) ?? [],
+        timeOffByEmployee.get(employeeId) ?? [],
+        standardWorkingDays
       );
 
       const workedRatio =
@@ -105,41 +180,60 @@ export class PayrunCalculator {
         standardWorkingDays: workedResult.standardWorkingDays,
       });
 
-      // 4. Save payslip lines and update payslip in a transaction
-      const updatedPayslip = await prisma.$transaction(async (tx) => {
-        // Delete old lines if any
-        await tx.payslipLine.deleteMany({ where: { payslipId: payslip.id } });
-
-        // Create new lines
-        await tx.payslipLine.createMany({
-          data: ruleResult.lines.map((line) => ({
-            payslipId: payslip.id,
-            code: line.code,
-            name: line.name,
-            category: line.category,
-            sequence: line.sequence,
-            amount: line.amount,
-          })),
+      computedIds.push(payslip.id);
+      for (const line of ruleResult.lines) {
+        lineRows.push({
+          payslipId: payslip.id,
+          code: line.code,
+          name: line.name,
+          category: line.category,
+          sequence: line.sequence,
+          amount: line.amount,
         });
-
-        // Update payslip totals
-        return tx.payslip.update({
-          where: { id: payslip.id },
-          data: {
-            workedDays: workedResult.totalPayableDays,
-            grossSalary: ruleResult.grossSalary,
-            totalDeductions: ruleResult.totalDeductions,
-            netSalary: ruleResult.netSalary,
-            status: PayslipStatus.CONFIRMED,
-          },
-          include: {
-            employee: { select: { id: true, name: true, employeeCode: true, jobPosition: true } },
-            lines: { orderBy: { sequence: 'asc' } },
-          },
-        });
+      }
+      payslipUpdates.push({
+        id: payslip.id,
+        workedDays: workedResult.totalPayableDays,
+        grossSalary: ruleResult.grossSalary,
+        totalDeductions: ruleResult.totalDeductions,
+        netSalary: ruleResult.netSalary,
       });
+    }
 
-      computedPayslips.push(updatedPayslip);
+    // 4. Write everything in one transaction. Only the payslips that actually
+    //    computed are touched: an employee skipped for want of a contract keeps
+    //    whatever they had, exactly as before.
+    if (computedIds.length > 0) {
+      // Each payslip gets different totals, and there is no bulk update that
+      // takes a different value per row — one `update` each would put the
+      // round trip back that the batching above removed. A single statement
+      // joined against a VALUES list does the lot. Values are still bound as
+      // parameters, so nothing is interpolated into the SQL.
+      //
+      // updatedAt is set by hand because @updatedAt is a Prisma-side default
+      // and does not apply to a raw statement.
+      const totals = Prisma.join(
+        payslipUpdates.map(
+          (u) =>
+            Prisma.sql`(${u.id}, ${u.workedDays}::double precision, ${u.grossSalary}::double precision, ${u.totalDeductions}::double precision, ${u.netSalary}::double precision)`
+        )
+      );
+
+      await prisma.$transaction([
+        prisma.payslipLine.deleteMany({ where: { payslipId: { in: computedIds } } }),
+        prisma.payslipLine.createMany({ data: lineRows }),
+        prisma.$executeRaw`
+          UPDATE "payslips" AS p
+          SET "workedDays" = v.worked_days,
+              "grossSalary" = v.gross_salary,
+              "totalDeductions" = v.total_deductions,
+              "netSalary" = v.net_salary,
+              "status" = ${PayslipStatus.CONFIRMED}::"PayslipStatus",
+              "updatedAt" = NOW()
+          FROM (VALUES ${totals}) AS v(id, worked_days, gross_salary, total_deductions, net_salary)
+          WHERE p."id" = v.id
+        `,
+      ]);
     }
 
     // 5. Update payrun status to COMPUTED
@@ -162,10 +256,11 @@ export class PayrunCalculator {
       status: PayrunStatus.COMPUTED,
     });
 
+    const computed = new Set(computedIds);
     return {
       payrun: updatedPayrun,
-      computedCount: computedPayslips.length,
-      payslips: computedPayslips,
+      computedCount: computedIds.length,
+      payslips: updatedPayrun.payslips.filter((p) => computed.has(p.id)),
     };
   }
 }

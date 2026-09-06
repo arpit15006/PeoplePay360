@@ -54,6 +54,7 @@ import {
 } from '@tabler/icons-react'
 
 import { initialsOf } from '@/types/employee'
+import PayslipSendProgress, { type SendProgressResult } from '@/components/payroll/PayslipSendProgress'
 
 import { usePayrun, usePayrunAction, usePayrunWarnings } from '@/hooks/usePayruns'
 import { useAuth } from '@/context/AuthContext'
@@ -89,6 +90,9 @@ export function PayrunDetail() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [recipients, setRecipients] = useState<string[]>([])
+  const [sendStarted, setSendStarted] = useState(false)
+  const [sendResult, setSendResult] = useState<SendProgressResult | undefined>()
+  const [sendError, setSendError] = useState<string | undefined>()
 
   const canProcess = !!user && CAN_PROCESS.includes(user.role)
   const canSend = !!user && CAN_SEND.includes(user.role)
@@ -235,14 +239,13 @@ export function PayrunDetail() {
   const blocking = warnings.filter(w => w.severity === 'error')
 
   const run = async (
-    act: 'compute' | 'validate' | 'markPaid' | 'send',
+    act: 'compute' | 'validate' | 'markPaid',
     label: string
   ) => {
     const toastId = toast.loading(`${label}…`)
     try {
       await action.mutateAsync({ id: payrun.id, action: act })
       toast.success(`${label} complete`, { id: toastId })
-      if (act === 'send') setSending(false)
     } catch (err) {
       toast.error(`${label} failed`, {
         id: toastId,
@@ -251,12 +254,43 @@ export function PayrunDetail() {
     }
   }
 
+  /**
+   * Sending is the one action worth watching: a PDF is built and emailed per
+   * employee, so it takes long enough that a spinner in the corner says
+   * nothing useful. The dialog stays open and shows real progress, reported by
+   * the server as each send settles.
+   */
+  const runSend = async () => {
+    setSendError(undefined)
+    setSendResult(undefined)
+    setSendStarted(true)
+    try {
+      const res = (await action.mutateAsync({ id: payrun.id, action: 'send' })) as {
+        sent?: number
+        failed?: number
+      }
+      setSendResult({ sent: res?.sent ?? recipients.length, failed: res?.failed ?? 0 })
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Could not send the payslips.')
+    }
+  }
+
+  const closeSendDialog = () => {
+    setSending(false)
+    setSendStarted(false)
+    setSendResult(undefined)
+    setSendError(undefined)
+  }
+
   // Ticking rows in the table is the same act as choosing who to email, so the
   // send dialog opens on that selection rather than starting from everyone
   // again. With nothing ticked it still means "all of them".
   const openSend = () => {
     const ticked = Object.keys(rowSelection).filter(id => rowSelection[id])
     setRecipients(ticked.length > 0 ? ticked : payrun.payslips.map(p => p.id))
+    setSendStarted(false)
+    setSendResult(undefined)
+    setSendError(undefined)
     setSending(true)
   }
 
@@ -465,7 +499,7 @@ export function PayrunDetail() {
       </Card>
 
       {/* Screen 16 — bulk email distribution */}
-      <Dialog open={sending} onOpenChange={setSending}>
+      <Dialog open={sending} onOpenChange={open => (open ? setSending(true) : closeSendDialog())}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Send Payslips</DialogTitle>
@@ -485,6 +519,14 @@ export function PayrunDetail() {
             </Alert>
           )}
 
+          {sendStarted ? (
+            <PayslipSendProgress
+              payrunId={payrun.id}
+              total={recipients.length}
+              result={sendResult}
+              error={sendError}
+            />
+          ) : (
           <div className='divide-y rounded-md border'>
             {payrun.payslips.map(payslip => (
               <label
@@ -509,18 +551,29 @@ export function PayrunDetail() {
               </label>
             ))}
           </div>
+          )}
 
           <DialogFooter>
-            <Button variant='outline' onClick={() => setSending(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => run('send', 'Sending payslips')}
-              disabled={action.isPending || recipients.length === 0}
-            >
-              <IconMail />
-              Send All
-            </Button>
+            {sendResult || sendError ? (
+              <Button onClick={closeSendDialog}>Done</Button>
+            ) : (
+              <>
+                <Button
+                  variant='outline'
+                  onClick={closeSendDialog}
+                  disabled={sendStarted && action.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={runSend}
+                  disabled={action.isPending || recipients.length === 0 || sendStarted}
+                >
+                  <IconMail />
+                  {sendStarted ? 'Sending…' : 'Send All'}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

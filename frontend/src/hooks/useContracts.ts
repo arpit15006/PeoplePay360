@@ -17,8 +17,17 @@ export function useContract(id: string | undefined) {
   });
 }
 
-export function useSalaryStructures() {
-  return useQuery({ queryKey: ['salary-structures'], queryFn: contractsApi.salaryStructures });
+/**
+ * `enabled` is passed by the contract form: the structures endpoint is payroll
+ * only, so asking for it as an HR Manager just produced a 403 and an empty list
+ * that the picker then rendered as "no structure".
+ */
+export function useSalaryStructures(enabled = true) {
+  return useQuery({
+    queryKey: ['salary-structures'],
+    queryFn: contractsApi.salaryStructures,
+    enabled,
+  });
 }
 
 export function useSaveContract(id?: string) {

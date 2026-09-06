@@ -1,26 +1,47 @@
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { IconPlus } from '@tabler/icons-react'
+import { IconPlus, IconX } from '@tabler/icons-react'
 
 import { DataTablePaginationBase } from '@/components/shadcn-studio/data-table/data-table-parts'
 import { useClientPagination } from '@/hooks/useClientPagination'
 import { usePayruns } from '@/hooks/usePayruns'
-import { PAYRUN_STATUS_CLASSES, PAYRUN_STATUS_LABELS, money } from '@/types/payrun'
+import {
+  PAYRUN_STATUS_CLASSES,
+  PAYRUN_STATUS_LABELS,
+  money,
+  type PayrunStatus
+} from '@/types/payrun'
 
 /** PRD Screen 12/13 entry — the payrun list. New opens the wizard, never a record. */
 export function PayrunList() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const { data: payruns = [], isLoading, isError, error } = usePayruns()
+
+  // Arriving from a dashboard alert carries the status it counted, so the list
+  // opens on exactly the payruns that alert was about.
+  const statusFilter = searchParams.get('status') as PayrunStatus | null
+  const rows = useMemo(
+    () => (statusFilter ? payruns.filter(p => p.status === statusFilter) : payruns),
+    [payruns, statusFilter]
+  )
+
+  const clearStatus = () => {
+    searchParams.delete('status')
+    setSearchParams(searchParams, { replace: true })
+  }
 
   // Payruns accrue a row a month rather than one an employee, but the list is
   // append-only and never pruned, so it pages like the rest.
   const { page, pageIndex, pageSize, pageCount, total, onPageChange, onPageSizeChange } =
-    useClientPagination(payruns)
+    useClientPagination(rows)
 
   return (
     <div className='space-y-6'>
@@ -31,10 +52,19 @@ export function PayrunList() {
             Each payrun groups the payslips for one period. Finalised runs are kept as history.
           </p>
         </div>
-        <Button onClick={() => navigate('/payroll/payruns/new')}>
-          <IconPlus />
-          New
-        </Button>
+        <div className='flex flex-wrap items-center gap-2'>
+          {/* Say plainly that the list is narrowed, and offer the way out. */}
+          {statusFilter && (
+            <Button variant='outline' onClick={clearStatus}>
+              <IconX />
+              Showing {PAYRUN_STATUS_LABELS[statusFilter] ?? statusFilter} only
+            </Button>
+          )}
+          <Button onClick={() => navigate('/payroll/payruns/new')}>
+            <IconPlus />
+            New
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -59,10 +89,12 @@ export function PayrunList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payruns.length === 0 ? (
+                {rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className='h-24 text-center'>
-                      No payruns yet.
+                      {payruns.length === 0
+                        ? 'No payruns yet.'
+                        : 'No payruns match the current filter.'}
                     </TableCell>
                   </TableRow>
                 ) : (

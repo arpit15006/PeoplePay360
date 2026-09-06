@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { IconArrowLeft, IconBan } from '@tabler/icons-react'
+import { IconArrowLeft, IconBan, IconLock } from '@tabler/icons-react'
 
 import DatePicker from '@/components/common/DatePicker'
 import ContractStatusBadge from '@/components/contracts/ContractStatusBadge'
@@ -42,6 +42,14 @@ import type { Role } from '@/types/user'
 
 const CAN_MANAGE: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 
+/**
+ * Salary structures are payroll master data — the HR Manager runs Contracts but
+ * has no Payroll module, and the structures endpoint refuses them outright.
+ * Without this the picker rendered with no options at all, so a contract that
+ * had a structure looked as though it had none.
+ */
+const CAN_PICK_STRUCTURE: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
+
 const Labelled = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className='space-y-1.5'>
     <p className='text-muted-foreground text-xs font-medium'>{label}</p>
@@ -60,7 +68,9 @@ export function ContractForm() {
   const { data: contract, isLoading, isError, error } = useContract(id)
   const { data: employees = [] } = useEmployees()
   const { data: departments = [] } = useDepartments()
-  const { data: structures = [] } = useSalaryStructures()
+  const canPickStructure = !!user && CAN_PICK_STRUCTURE.includes(user.role)
+  // Not fetched for a role the endpoint would refuse: it only produced a 403.
+  const { data: structures = [] } = useSalaryStructures(canPickStructure)
   const saveContract = useSaveContract(id)
 
   const [form, setForm] = useState<Partial<ContractInput>>({ status: 'DRAFT' })
@@ -258,6 +268,19 @@ export function ContractForm() {
           </Labelled>
 
           <Labelled label='Salary Structure'>
+            {!canPickStructure ? (
+              // Shown, not hidden: it decides how this contract is paid, so it
+              // belongs on the form. Styled apart from the editable fields so
+              // it reads as someone else's to change, and it carries the real
+              // value rather than an empty picker.
+              <div className='bg-muted/60 text-muted-foreground flex h-9 items-center gap-2 rounded-lg border border-dashed px-3 text-sm'>
+                <IconLock className='size-3.5 shrink-0' />
+                <span className='text-foreground truncate'>
+                  {contract?.salaryStructure?.name ?? 'Not set'}
+                </span>
+                <span className='ml-auto shrink-0 text-xs'>Payroll only</span>
+              </div>
+            ) : (
             <Select
               value={form.salaryStructureId}
               disabled={readOnly}
@@ -282,6 +305,7 @@ export function ContractForm() {
                   ))}
               </SelectContent>
             </Select>
+            )}
           </Labelled>
 
           <Labelled label='Status'>
