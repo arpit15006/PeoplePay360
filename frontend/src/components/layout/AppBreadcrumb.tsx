@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 
 import {
   Breadcrumb,
@@ -42,20 +43,28 @@ const labelFor = (segment: string) =>
  */
 export function AppBreadcrumb() {
   const { pathname } = useLocation()
+  const { user } = useAuth()
   const segments = pathname.split('/').filter(Boolean)
 
-  const crumbs = segments.map((segment, index) => ({
-    label: labelFor(segment),
-    href: `/${segments.slice(0, index + 1).join('/')}`,
-    isLast: index === segments.length - 1
-  }))
+  const employeeHome =
+    user?.role === 'EMPLOYEE' && user?.employeeId ? `/employees/${user.employeeId}` : '/employees'
+
+  const crumbs = segments.map((segment, index) => {
+    const rawHref = `/${segments.slice(0, index + 1).join('/')}`
+    const href = rawHref === '/employees' ? employeeHome : rawHref
+    return {
+      label: labelFor(segment),
+      href,
+      isLast: index === segments.length - 1
+    }
+  })
 
   return (
     <Breadcrumb>
       <BreadcrumbList className='min-h-8 rounded-md border px-3 py-0.5'>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to='/employees'>
+            <Link to={employeeHome}>
               <IconHome className='size-4' />
               <span className='sr-only'>Home</span>
             </Link>

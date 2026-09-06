@@ -15,7 +15,6 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import {
-  IconArrowLeft,
   IconFileDescription,
   IconClock,
   IconCalendarTime,
@@ -192,9 +191,6 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
       {/* Header */}
       <div className='flex flex-wrap items-start justify-between gap-4'>
         <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='icon' onClick={() => navigate('/employees')} aria-label='Back'>
-            <IconArrowLeft />
-          </Button>
           <Avatar size='lg'>
             <AvatarFallback>{initialsOf(employee?.name ?? draft.name ?? 'N E')}</AvatarFallback>
           </Avatar>

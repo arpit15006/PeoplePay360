@@ -43,7 +43,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const roleLandingPath = (user: AuthUser): string => {
   switch (user.role) {
     case 'EMPLOYEE':
-      return user.employeeId ? `/employees/${user.employeeId}` : '/attendance';
+      return user.employeeId ? `/employees/${user.employeeId}` : '/employees';
     case 'HR_MANAGER':
       return '/employees';
     case 'HR_PAYROLL_USER':

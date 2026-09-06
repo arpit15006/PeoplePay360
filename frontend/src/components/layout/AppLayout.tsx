@@ -117,11 +117,13 @@ const permitted = (role: Role | undefined, allow?: Role[]) => !allow || (!!role 
 const SidebarGroupedMenuItems = ({
   data,
   groupLabel,
-  role
+  role,
+  employeeId
 }: {
   data: MenuItem[]
   groupLabel?: string
   role?: Role
+  employeeId?: string | null
 }) => {
   const { pathname } = useLocation()
 
@@ -206,7 +208,15 @@ const SidebarGroupedMenuItems = ({
                 )
               }
 
-              const isTopActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const itemHref =
+                item.label === 'Employees' && role === 'EMPLOYEE' && employeeId
+                  ? `/employees/${employeeId}`
+                  : item.href
+
+              const isTopActive =
+                pathname === itemHref ||
+                pathname.startsWith(`${itemHref}/`) ||
+                (item.label === 'Employees' && pathname.startsWith('/employees'))
 
               return (
                 <SidebarMenuItem key={item.label}>
@@ -221,7 +231,7 @@ const SidebarGroupedMenuItems = ({
                     )}
                     asChild
                   >
-                    <NavLink to={item.href}>
+                    <NavLink to={itemHref}>
                       <span
                         className={cn(
                           'shrink-0 transition-colors',
@@ -259,7 +269,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <Sidebar collapsible='icon' className='border-r border-border bg-sidebar'>
         <SidebarHeader className='h-14 shrink-0 flex-row items-center justify-start p-0 px-4 border-b border-border'>
           <NavLink
-            to='/employees'
+            to={user?.role === 'EMPLOYEE' && user?.employeeId ? `/employees/${user.employeeId}` : '/employees'}
             className='flex items-center gap-2.5 group focus:outline-hidden'
           >
             <LogoSvg className='size-8 shrink-0 transition-transform group-hover:scale-105' />
@@ -270,7 +280,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </SidebarHeader>
 
         <SidebarContent className='py-2 overflow-y-auto'>
-          <SidebarGroupedMenuItems data={menuItems} groupLabel='Core Modules' role={user?.role} />
+          <SidebarGroupedMenuItems
+            data={menuItems}
+            groupLabel='Core Modules'
+            role={user?.role}
+            employeeId={user?.employeeId}
+          />
         </SidebarContent>
 
         <SidebarFooter className='p-3 border-t border-border/70 [[data-state=collapsed]_&]:hidden'>

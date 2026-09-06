@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom'
 import { IconPlus, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 
 import { Button } from '@/components/ui/button'
@@ -53,6 +53,31 @@ export function EmployeesDashboard() {
   const importContext = useImportContext()
 
   const employees = useMemo(() => data ?? [], [data])
+
+  // When an Employee accesses /employees, never show the management Kanban/List view.
+  // Directly navigate to their own employee detail page.
+  const myEmployeeId =
+    user?.employeeId ||
+    employees.find(e => e.email?.toLowerCase() === user?.email?.toLowerCase())?.id
+
+  if (user?.role === 'EMPLOYEE') {
+    if (myEmployeeId) {
+      return <Navigate to={`/employees/${myEmployeeId}`} replace />
+    }
+    if (isLoading) {
+      return (
+        <div className='space-y-4 p-6'>
+          <Skeleton className='h-12 w-1/3' />
+          <Skeleton className='h-64 w-full' />
+        </div>
+      )
+    }
+    return (
+      <div className='p-6 text-sm text-muted-foreground'>
+        No employee profile is associated with your account. Please contact your HR administrator.
+      </div>
+    )
+  }
 
   // Arriving from a department's "View employees" carries the department id.
   // The id is what travels, because it survives a rename, but the row filter

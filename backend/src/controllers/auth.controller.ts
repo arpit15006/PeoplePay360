@@ -50,6 +50,28 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       throw new UnauthorizedError('This account has been deactivated. Contact an administrator.');
     }
 
+    // Auto-link employee profile if user is an EMPLOYEE and not explicitly linked
+    if (user.role === 'EMPLOYEE' && !user.employeeId) {
+      const matchedEmployee = await prisma.employee.findFirst({
+        where: { email: { equals: user.email, mode: 'insensitive' } },
+        select: {
+          id: true,
+          name: true,
+          employeeCode: true,
+          jobPosition: true,
+          department: { select: { name: true } },
+        },
+      });
+      if (matchedEmployee) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { employeeId: matchedEmployee.id },
+        });
+        user.employeeId = matchedEmployee.id;
+        user.employee = matchedEmployee;
+      }
+    }
+
     // Generate JWT
     const token = jwt.sign(
       { userId: user.id },
@@ -117,6 +139,34 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
 
     if (!user) {
       throw new UnauthorizedError('User not found');
+    }
+
+    // Auto-link employee profile if user is an EMPLOYEE and not explicitly linked
+    if (user.role === 'EMPLOYEE' && !user.employeeId) {
+      const matchedEmployee = await prisma.employee.findFirst({
+        where: { email: { equals: user.email, mode: 'insensitive' } },
+        select: {
+          id: true,
+          employeeCode: true,
+          name: true,
+          email: true,
+          phone: true,
+          jobPosition: true,
+          employeeType: true,
+          status: true,
+          department: { select: { id: true, name: true } },
+          manager: { select: { id: true, name: true } },
+          workingSchedule: { select: { id: true, name: true } },
+        },
+      });
+      if (matchedEmployee) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { employeeId: matchedEmployee.id },
+        });
+        user.employeeId = matchedEmployee.id;
+        user.employee = matchedEmployee;
+      }
     }
 
     res.json({

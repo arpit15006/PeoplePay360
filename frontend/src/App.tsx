@@ -24,6 +24,8 @@ import DepartmentsList from './components/departments/DepartmentsList';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
+import { roleLandingPath } from './types/user';
 import type { Role } from './types/user';
 
 const PAYROLL_ROLES: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'];
@@ -45,6 +47,12 @@ const soon = (pageName: string, routePath: string, allow?: Role[]) => (
   </ProtectedRoute>
 );
 
+function RootLandingRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={roleLandingPath(user)} replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -58,7 +66,7 @@ export default function App() {
           <ProtectedRoute>
             <AppLayout>
               <Routes>
-                <Route path="/" element={<Navigate to="/employees" replace />} />
+                <Route path="/" element={<RootLandingRedirect />} />
 
                 {/* Employees */}
                 <Route path="/employees" element={<EmployeesDashboard />} />
