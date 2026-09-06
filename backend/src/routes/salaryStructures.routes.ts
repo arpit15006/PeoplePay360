@@ -10,9 +10,15 @@ const router = Router();
 router.use(authenticate);
 
 // GET /api/salary-structures — List all salary structures
+//
+// Readable by the HR Manager as well: they run Contracts, and a contract has to
+// name a structure, so without this their own module could not be completed —
+// the picker came back empty and a contract that had a structure looked as
+// though it had none. Creating, editing and deleting structures stays with
+// Payroll below.
 router.get(
   '/',
-  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const structures = await SalaryStructureService.listStructures();
@@ -26,7 +32,7 @@ router.get(
 // GET /api/salary-structures/:id — Get structure details with its rules
 router.get(
   '/:id',
-  authorize(Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
+  authorize(Role.HR_MANAGER, Role.HR_PAYROLL_USER, Role.HR_PAYROLL_MANAGER, Role.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const structure = await SalaryStructureService.getStructureById(req.params.id);
