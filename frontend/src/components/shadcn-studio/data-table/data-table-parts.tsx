@@ -5,6 +5,7 @@ import { useId, useMemo } from 'react'
 import type { Column, Table as TanstackTable } from '@tanstack/react-table'
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from '@/components/ui/pagination'
@@ -129,7 +130,8 @@ export function DataTablePaginationBase({
   onPageSizeChange,
   noun = 'entries',
   itemsToDisplay = 5,
-  pageSizeOptions = PAGE_SIZE_OPTIONS
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
+  className
 }: {
   pageIndex: number
   pageSize: number
@@ -140,6 +142,8 @@ export function DataTablePaginationBase({
   noun?: string
   itemsToDisplay?: number
   pageSizeOptions?: number[]
+  /** Overrides the default page padding, for footers inside a dialog. */
+  className?: string
 }) {
   const id = useId()
 
@@ -154,7 +158,7 @@ export function DataTablePaginationBase({
   const last = Math.min(Math.max(pageIndex * pageSize + pageSize, 0), total)
 
   return (
-    <div className='flex items-center justify-between gap-3 px-6 py-4 max-sm:flex-col md:max-lg:flex-col'>
+    <div className={cn('flex items-center justify-between gap-3 px-6 py-4 max-sm:flex-col md:max-lg:flex-col', className)}>
       <div className='flex items-center gap-4 max-sm:flex-col'>
         <p className='text-muted-foreground text-sm whitespace-nowrap' aria-live='polite'>
           Showing{' '}

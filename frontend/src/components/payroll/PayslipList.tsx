@@ -19,7 +19,7 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -34,7 +34,7 @@ import {
   DataTablePagination
 } from '@/components/shadcn-studio/data-table/data-table-parts'
 import { usePayslips } from '@/hooks/usePayruns'
-import { initialsOf } from '@/types/employee'
+import { useAuth } from '@/context/AuthContext'
 import { PAYSLIP_STATUS_CLASSES, PAYSLIP_STATUS_LABELS, money, type Payslip, type PayslipStatus } from '@/types/payrun'
 
 const NO_DEPARTMENT = 'No department'
@@ -42,6 +42,13 @@ const NO_DEPARTMENT = 'No department'
 /** PRD Screen 14 — Payslips list. */
 export function PayslipList() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  /**
+   * An Employee only sees their own payslips, so name and department repeat on
+   * every row, and ticking rows to total them is a payroll job, not theirs.
+   */
+  const isSelf = user?.role === 'EMPLOYEE'
+
   const [searchParams] = useSearchParams()
   const payrunId = searchParams.get('payrunId') ?? undefined
   const { data: payslips = [], isLoading, isError, error } = usePayslips(payrunId)
@@ -53,7 +60,11 @@ export function PayslipList() {
 
   const columns = useMemo<ColumnDef<Payslip>[]>(
     () => [
-      {
+      // Selection exists to total gross and net against a bank file — payroll
+      // work, and meaningless on a single person's own payslips.
+      ...(isSelf
+        ? []
+        : [{
         id: 'select',
         enableSorting: false,
         header: ({ table }) => (
@@ -84,11 +95,11 @@ export function PayslipList() {
         accessorFn: row => row.employee?.name ?? '',
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='size-9'>
-              <AvatarFallback className='text-xs'>
-                {initialsOf(row.original.employee?.name ?? '?')}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={row.original.employee?.name}
+              className='size-9'
+              fallbackClassName='text-xs'
+            />
             <div className='flex min-w-0 flex-col'>
               <span className='truncate font-medium'>{row.original.employee?.name ?? '—'}</span>
               <span className='text-muted-foreground truncate'>
@@ -105,7 +116,7 @@ export function PayslipList() {
         accessorFn: row => row.employee?.department?.name ?? NO_DEPARTMENT,
         filterFn: 'equalsString',
         cell: ({ getValue }) => <span className='text-muted-foreground'>{getValue<string>()}</span>
-      },
+      }] as ColumnDef<Payslip>[]),
       {
         id: 'structure',
         header: 'Salary Structure',
@@ -179,7 +190,7 @@ export function PayslipList() {
         )
       }
     ],
-    [navigate]
+    [navigate, isSelf]
   )
 
   const table = useReactTable({
@@ -237,7 +248,9 @@ export function PayslipList() {
               <span className='text-xl font-semibold'>Filter</span>
               <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4'>
                 <DataTableFacetFilter column={table.getColumn('period')} label='Period' />
-                <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                {!isSelf && (
+                  <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                )}
                 <DataTableFacetFilter column={table.getColumn('structure')} label='Salary Structure' />
                 <DataTableFacetFilter
                   column={table.getColumn('status')}

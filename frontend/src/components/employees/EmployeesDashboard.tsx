@@ -52,6 +52,13 @@ export function EmployeesDashboard() {
 
   const importContext = useImportContext()
 
+  /**
+   * PRD §28 scopes an Employee to their own record, so the list is a single
+   * row: searching it, filtering it by department or status, and sorting it
+   * all do nothing. The toolbar is dropped rather than left inert.
+   */
+  const isSelf = user?.role === 'EMPLOYEE'
+
   const employees = useMemo(() => data ?? [], [data])
 
   // When an Employee accesses /employees, never show the management Kanban/List view.
@@ -167,57 +174,61 @@ export function EmployeesDashboard() {
       {/* Toolbar: search, filters, view switcher */}
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div className='flex flex-wrap items-center gap-2'>
-          <InputGroup className='w-64'>
-            <InputGroupAddon align='inline-start'>
-              <IconSearch className='size-4' />
-            </InputGroupAddon>
-            <InputGroupInput
-              placeholder='Search...'
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              aria-label='Search employees'
-            />
-          </InputGroup>
+          {!isSelf && (
+            <>
+              <InputGroup className='w-64'>
+                <InputGroupAddon align='inline-start'>
+                  <IconSearch className='size-4' />
+                </InputGroupAddon>
+                <InputGroupInput
+                  placeholder='Search...'
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  aria-label='Search employees'
+                />
+              </InputGroup>
 
-          <DropdownMenuCheckboxFilter
-            label='Department'
-            options={departmentOptions}
-            value={department}
-            onValueChange={next => {
-              setDepartment(next)
-              // Changing it by hand should not leave a stale id in the URL.
-              if (departmentIdParam) {
-                searchParams.delete('departmentId')
-                setSearchParams(searchParams, { replace: true })
-              }
-            }}
-            aria-label='Filter by department'
-          />
+              <DropdownMenuCheckboxFilter
+                label='Department'
+                options={departmentOptions}
+                value={department}
+                onValueChange={next => {
+                  setDepartment(next)
+                  // Changing it by hand should not leave a stale id in the URL.
+                  if (departmentIdParam) {
+                    searchParams.delete('departmentId')
+                    setSearchParams(searchParams, { replace: true })
+                  }
+                }}
+                aria-label='Filter by department'
+              />
 
-          {/* Say plainly that the list is narrowed, and offer the way out. */}
-          {department !== 'all' && (
-            <Button variant='outline' size='sm' onClick={clearDepartmentFilter}>
-              <IconX />
-              Showing {department} only
-            </Button>
+              {/* Say plainly that the list is narrowed, and offer the way out. */}
+              {department !== 'all' && (
+                <Button variant='outline' size='sm' onClick={clearDepartmentFilter}>
+                  <IconX />
+                  Showing {department} only
+                </Button>
+              )}
+
+              <DropdownMenuCheckboxFilter
+                label='Status'
+                options={STATUS_OPTIONS}
+                value={status}
+                onValueChange={setStatus}
+                aria-label='Filter by status'
+              />
+
+              <DropdownMenuCheckboxFilter
+                label='Sort by'
+                triggerPrefix='Sort by: '
+                options={SORT_OPTIONS}
+                value={sort}
+                onValueChange={setSort}
+                aria-label='Sort employees'
+              />
+            </>
           )}
-
-          <DropdownMenuCheckboxFilter
-            label='Status'
-            options={STATUS_OPTIONS}
-            value={status}
-            onValueChange={setStatus}
-            aria-label='Filter by status'
-          />
-
-          <DropdownMenuCheckboxFilter
-            label='Sort by'
-            triggerPrefix='Sort by: '
-            options={SORT_OPTIONS}
-            value={sort}
-            onValueChange={setSort}
-            aria-label='Sort employees'
-          />
         </div>
 
         <ToggleGroupViewSwitcher value={view} onValueChange={setView} />
@@ -238,7 +249,7 @@ export function EmployeesDashboard() {
 
       {/* The list view carries its own "Showing 1 to 10 of 42" footer, so this
           count is only needed behind the Kanban. */}
-      {!isLoading && !isError && view === 'kanban' && (
+      {!isLoading && !isError && !isSelf && view === 'kanban' && (
         <p className='text-muted-foreground text-sm'>
           Showing {filtered.length} of {scoped.length} employees
         </p>

@@ -31,12 +31,21 @@ export function useCreatePayrun() {
 /** Compute, Validate, Mark Paid and Send Payslips share one mutation shape. */
 export function usePayrunAction() {
   const invalidate = useInvalidatePayruns();
-  return useMutation<unknown, Error, { id: string; action: 'compute' | 'validate' | 'markPaid' | 'send' }>({
-    mutationFn: ({ id, action }) => {
+  return useMutation<
+    unknown,
+    Error,
+    {
+      id: string;
+      action: 'compute' | 'validate' | 'markPaid' | 'send';
+      /** Send only: the payslips ticked in the send dialog. */
+      payslipIds?: string[];
+    }
+  >({
+    mutationFn: ({ id, action, payslipIds }) => {
       if (action === 'compute') return payrunsApi.compute(id);
       if (action === 'validate') return payrunsApi.validate(id);
       if (action === 'markPaid') return payrunsApi.markPaid(id);
-      return payrunsApi.sendPayslips(id);
+      return payrunsApi.sendPayslips(id, payslipIds);
     },
     onSuccess: invalidate,
   });

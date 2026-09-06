@@ -68,7 +68,14 @@ export function useAttendanceSession() {
   useEffect(() => {
     if (!enabled || !state?.running) return;
     const timer = setInterval(() => {
-      void attendanceSessionApi.heartbeat().then(set).catch(() => undefined);
+      void attendanceSessionApi
+        .heartbeat()
+        .then(({ alive }) => {
+          // The sweeper can have closed the session while this tab sat idle.
+          // Only then is a refetch worth a round trip.
+          if (!alive) void query.refetch();
+        })
+        .catch(() => undefined);
     }, HEARTBEAT_MS);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps

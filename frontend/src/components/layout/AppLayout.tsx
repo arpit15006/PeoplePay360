@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
@@ -57,7 +57,6 @@ import { attendanceSessionApi, type StopPreview } from '@/api/attendanceSession'
 import { useAuth } from '@/context/AuthContext'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { ROLE_LABELS, type Role } from '@/types/user'
-import { initialsOf } from '@/types/employee'
 
 const PAYROLL: Role[] = ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
 const PAYSLIP: Role[] = ['EMPLOYEE', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN']
@@ -306,7 +305,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar collapsible='icon' className='border-r border-border bg-sidebar'>
-        <SidebarHeader className='h-14 shrink-0 flex-row items-center justify-start p-0 px-4 border-b border-border'>
+        <SidebarHeader
+          className='h-14 shrink-0 flex-row items-center justify-start p-0 px-4 border-b border-border
+            [[data-state=collapsed]_&]:px-2'
+        >
           <NavLink
             to={user?.role === 'EMPLOYEE' && user?.employeeId ? `/employees/${user.employeeId}` : '/employees'}
             className='flex items-center gap-2.5 group focus:outline-hidden'
@@ -329,11 +331,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         <SidebarFooter className='p-3 border-t border-border/70 [[data-state=collapsed]_&]:hidden'>
           <div className='flex items-center gap-3 rounded-xl border border-border/70 bg-sidebar-accent/30 p-2.5 transition-colors hover:bg-sidebar-accent/50'>
-            <Avatar className='size-8 shrink-0'>
-              <AvatarFallback className='bg-primary/10 font-bold text-xs text-primary'>
-                {initialsOf(user?.name ?? 'PP')}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={user?.name ?? 'PP'}
+              className='size-8 shrink-0'
+              fallbackClassName='bg-primary/10 font-bold text-xs text-primary'
+            />
             <div className='min-w-0 flex-1'>
               <p className='truncate text-xs font-semibold text-foreground'>{user?.name ?? 'Signed out'}</p>
               <p className='truncate text-[11px] font-medium text-muted-foreground'>

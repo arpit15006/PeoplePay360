@@ -16,14 +16,29 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Alert, AlertTitle } from '@/components/ui/alert'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DataTablePagination } from '@/components/shadcn-studio/data-table/data-table-parts'
+import {
+  DataTablePagination,
+  DataTablePaginationBase
+} from '@/components/shadcn-studio/data-table/data-table-parts'
+import { useClientPagination } from '@/hooks/useClientPagination'
+
+/**
+ * Mirrors SEND_BLOCKING_CODES in backend/src/payroll/payrunWarnings.ts, which
+ * is the authority — this copy only lets the dialog disable its own button.
+ */
+const SEND_BLOCKING_CODES = [
+  'DUPLICATE_PAYSLIP',
+  'MISSING_EMAIL',
+  'NON_POSITIVE_NET',
+  'NO_APPLICABLE_CONTRACT'
+]
 import {
   Dialog,
   DialogContent,
@@ -53,7 +68,6 @@ import {
   IconX
 } from '@tabler/icons-react'
 
-import { initialsOf } from '@/types/employee'
 import PayslipSendProgress, { type SendProgressResult } from '@/components/payroll/PayslipSendProgress'
 
 import { usePayrun, usePayrunAction, usePayrunWarnings } from '@/hooks/usePayruns'
@@ -94,6 +108,12 @@ export function PayrunDetail() {
   const [sendResult, setSendResult] = useState<SendProgressResult | undefined>()
   const [sendError, setSendError] = useState<string | undefined>()
 
+  // The recipient list is one row per employee, so a full payrun fills it with
+  // hundreds. Paging it keeps the dialog a fixed height; `recipients` holds ids
+  // rather than rows, so a tick survives turning the page.
+  const sendableSlips = useMemo(() => payrun?.payslips ?? [], [payrun])
+  const recipientPages = useClientPagination(sendableSlips, 10)
+
   const canProcess = !!user && CAN_PROCESS.includes(user.role)
   const canSend = !!user && CAN_SEND.includes(user.role)
 
@@ -132,11 +152,11 @@ export function PayrunDetail() {
         accessorFn: row => row.employee?.name ?? '',
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='size-9'>
-              <AvatarFallback className='text-xs'>
-                {initialsOf(row.original.employee?.name ?? '?')}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={row.original.employee?.name}
+              className='size-9'
+              fallbackClassName='text-xs'
+            />
             <div className='flex min-w-0 flex-col'>
               <span className='truncate font-medium'>{row.original.employee?.name ?? '—'}</span>
               <span className='text-muted-foreground truncate text-xs'>
@@ -236,7 +256,23 @@ export function PayrunDetail() {
   }
 
   const stage = PAYRUN_FLOW.indexOf(payrun.status)
-  const blocking = warnings.filter(w => w.severity === 'error')
+  /**
+   * The subset of errors that actually stop an email going out, narrowed to the
+   * employees currently ticked. Missing bank details stop someone being *paid*
+   * and belong on the page above, but they do not stop a PDF being emailed, so
+   * they are not counted here. The server applies the same rule.
+   */
+  const sendBlockers = useMemo(() => {
+    const chosen = new Set(
+      sendableSlips.filter(p => recipients.includes(p.id)).map(p => p.employeeId)
+    )
+    return warnings.filter(
+      w =>
+        SEND_BLOCKING_CODES.includes(w.code) &&
+        w.severity === 'error' &&
+        (!w.employeeId || chosen.has(w.employeeId))
+    )
+  }, [warnings, sendableSlips, recipients])
 
   const run = async (
     act: 'compute' | 'validate' | 'markPaid',
@@ -265,7 +301,11 @@ export function PayrunDetail() {
     setSendResult(undefined)
     setSendStarted(true)
     try {
-      const res = (await action.mutateAsync({ id: payrun.id, action: 'send' })) as {
+      const res = (await action.mutateAsync({
+        id: payrun.id,
+        action: 'send',
+        payslipIds: recipients
+      })) as {
         sent?: number
         failed?: number
       }
@@ -500,22 +540,35 @@ export function PayrunDetail() {
 
       {/* Screen 16 — bulk email distribution */}
       <Dialog open={sending} onOpenChange={open => (open ? setSending(true) : closeSendDialog())}>
-        <DialogContent>
+        <DialogContent className='sm:max-w-lg'>
           <DialogHeader>
             <DialogTitle>Send Payslips</DialogTitle>
             <DialogDescription>
-              {recipients.length} employee{recipients.length === 1 ? '' : 's'} selected. Each
-              payslip is emailed to the employee and marked as sent.
+              Each payslip is emailed to the employee and marked as sent.
             </DialogDescription>
           </DialogHeader>
 
-          {blocking.length > 0 && (
+          {/* A warning about what to resolve "before sending" contradicts the
+              progress bar once sending has begun, so it belongs to the
+              pre-send step only. */}
+          {!sendStarted && sendBlockers.length > 0 && (
             <Alert variant='destructive' className='border-destructive *:[svg]:row-span-1'>
               <IconAlertTriangle />
               <AlertTitle>
-                Resolve {blocking.length} blocking issue{blocking.length === 1 ? '' : 's'} before
-                sending.
+                Resolve {sendBlockers.length} blocking issue
+                {sendBlockers.length === 1 ? '' : 's'} before sending.
               </AlertTitle>
+              {/* A count alone cannot be acted on — say which employees and why. */}
+              <AlertDescription>
+                <ul className='max-h-24 list-disc space-y-0.5 overflow-y-auto pl-4'>
+                  {sendBlockers.slice(0, 6).map((warning, index) => (
+                    <li key={index}>{warning.message}</li>
+                  ))}
+                  {sendBlockers.length > 6 && (
+                    <li>and {sendBlockers.length - 6} more, listed on the payrun above.</li>
+                  )}
+                </ul>
+              </AlertDescription>
             </Alert>
           )}
 
@@ -527,29 +580,65 @@ export function PayrunDetail() {
               error={sendError}
             />
           ) : (
-          <div className='divide-y rounded-md border'>
-            {payrun.payslips.map(payslip => (
-              <label
-                key={payslip.id}
-                className='hover:bg-muted/40 flex cursor-pointer items-center gap-3 px-4 py-2.5'
+          <div className='rounded-md border'>
+            {/* With the list paged, ticking everyone by hand is no longer
+                possible, so the all/none control acts on the whole payrun. */}
+            <div className='flex items-center justify-between gap-3 border-b px-4 py-2'>
+              <span className='text-muted-foreground text-xs'>
+                {recipients.length} of {sendableSlips.length} selected
+              </span>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() =>
+                  setRecipients(
+                    recipients.length === sendableSlips.length
+                      ? []
+                      : sendableSlips.map(p => p.id)
+                  )
+                }
               >
-                <Checkbox
-                  checked={recipients.includes(payslip.id)}
-                  onCheckedChange={() =>
-                    setRecipients(current =>
-                      current.includes(payslip.id)
-                        ? current.filter(x => x !== payslip.id)
-                        : [...current, payslip.id]
-                    )
-                  }
-                  aria-label={`Send to ${payslip.employee?.name}`}
-                />
-                <span className='flex-1 text-sm'>{payslip.employee?.name}</span>
-                <span className='text-muted-foreground text-xs tabular-nums'>
-                  {money(payslip.netSalary)}
-                </span>
-              </label>
-            ))}
+                {recipients.length === sendableSlips.length ? 'Clear all' : 'Select all'}
+              </Button>
+            </div>
+
+            <div className='divide-y'>
+              {recipientPages.page.map(payslip => (
+                <label
+                  key={payslip.id}
+                  className='hover:bg-muted/40 flex cursor-pointer items-center gap-3 px-4 py-2.5'
+                >
+                  <Checkbox
+                    checked={recipients.includes(payslip.id)}
+                    onCheckedChange={() =>
+                      setRecipients(current =>
+                        current.includes(payslip.id)
+                          ? current.filter(x => x !== payslip.id)
+                          : [...current, payslip.id]
+                      )
+                    }
+                    aria-label={`Send to ${payslip.employee?.name}`}
+                  />
+                  <span className='flex-1 text-sm'>{payslip.employee?.name}</span>
+                  <span className='text-muted-foreground text-xs tabular-nums'>
+                    {money(payslip.netSalary)}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className='border-t'>
+              <DataTablePaginationBase
+                pageIndex={recipientPages.pageIndex}
+                pageSize={recipientPages.pageSize}
+                pageCount={recipientPages.pageCount}
+                total={recipientPages.total}
+                onPageChange={recipientPages.onPageChange}
+                noun='employees'
+                itemsToDisplay={3}
+                className='px-3 py-2'
+              />
+            </div>
           </div>
           )}
 
@@ -567,7 +656,12 @@ export function PayrunDetail() {
                 </Button>
                 <Button
                   onClick={runSend}
-                  disabled={action.isPending || recipients.length === 0 || sendStarted}
+                  disabled={
+                    action.isPending ||
+                    recipients.length === 0 ||
+                    sendStarted ||
+                    sendBlockers.length > 0
+                  }
                 >
                   <IconMail />
                   {sendStarted ? 'Sending…' : 'Send All'}

@@ -13,7 +13,7 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -78,7 +78,6 @@ import {
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers'
 import { useEmployees } from '@/hooks/useEmployees'
 import { useAuth } from '@/context/AuthContext'
-import { initialsOf } from '@/types/employee'
 import { cn } from '@/lib/utils'
 import { ROLE_LABELS, ROLE_ORDER, type ManagedUser, type UserInput } from '@/types/user-admin'
 import type { Role } from '@/types/user'
@@ -219,9 +218,7 @@ export function UserManagement() {
           const isSelf = row.original.id === currentUser?.id
           return (
             <div className='flex items-center gap-3'>
-              <Avatar className='size-9'>
-                <AvatarFallback className='text-xs'>{initialsOf(row.original.name)}</AvatarFallback>
-              </Avatar>
+              <PersonAvatar name={row.original.name} className='size-9' fallbackClassName='text-xs' />
               <div className='flex min-w-0 flex-col'>
                 <span className='truncate font-medium'>
                   {row.original.name}
@@ -280,14 +277,17 @@ export function UserManagement() {
           const label = row.original.isActive ? 'Active' : 'Inactive'
           return (
             <div className='flex items-center gap-2'>
-              <Switch
-                checked={row.original.isActive}
-                // Locking yourself out of the only admin account is not
-                // recoverable from inside the app.
-                disabled={isSelf || togglePending}
-                onCheckedChange={() => toggleActive(row.original)}
-                aria-label={`Toggle access for ${row.original.name}`}
-              />
+              {/* Locking yourself out is not recoverable from inside the app,
+                  so your own row carries the badge alone rather than a switch
+                  that refuses to move. */}
+              {!isSelf && (
+                <Switch
+                  checked={row.original.isActive}
+                  disabled={togglePending}
+                  onCheckedChange={() => toggleActive(row.original)}
+                  aria-label={`Toggle access for ${row.original.name}`}
+                />
+              )}
               <Badge
                 className={cn('h-auto rounded-sm border-none focus-visible:outline-none', STATUS_CLASSES[label])}
               >
@@ -317,22 +317,23 @@ export function UserManagement() {
                   <p>Edit</p>
                 </TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    aria-label={`Delete ${u.name}`}
-                    disabled={isSelf}
-                    onClick={() => setConfirmDelete(u)}
-                  >
-                    <IconTrash className='size-4.5' />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{isSelf ? 'You cannot delete your own account' : 'Delete'}</p>
-                </TooltipContent>
-              </Tooltip>
+              {!isSelf && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      aria-label={`Delete ${u.name}`}
+                      onClick={() => setConfirmDelete(u)}
+                    >
+                      <IconTrash className='size-4.5' />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Delete</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size='icon' variant='ghost' aria-label={`More actions for ${u.name}`}>
@@ -344,9 +345,11 @@ export function UserManagement() {
                     <DropdownMenuItem onSelect={() => openEdit(u)}>
                       <span>Edit access</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled={isSelf} onSelect={() => toggleActive(u)}>
-                      <span>{u.isActive ? 'Deactivate' : 'Reactivate'}</span>
-                    </DropdownMenuItem>
+                    {!isSelf && (
+                      <DropdownMenuItem onSelect={() => toggleActive(u)}>
+                        <span>{u.isActive ? 'Deactivate' : 'Reactivate'}</span>
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -14,7 +14,7 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -59,7 +59,6 @@ import { useEmployees } from '@/hooks/useEmployees'
 import {
   EMPLOYEE_STATUS_LABELS,
   EMPLOYEE_TYPE_LABELS,
-  initialsOf,
   type EmployeeRow,
   type EmployeeStatus
 } from '@/types/employee'
@@ -185,9 +184,7 @@ export function PayrunWizard() {
         accessorKey: 'name',
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='size-9'>
-              <AvatarFallback className='text-xs'>{initialsOf(row.original.name)}</AvatarFallback>
-            </Avatar>
+            <PersonAvatar name={row.original.name} className='size-9' fallbackClassName='text-xs' />
             <div className='flex min-w-0 flex-col'>
               <span className='truncate font-medium'>{row.original.name}</span>
               <span className='text-muted-foreground truncate'>{row.original.employeeCode}</span>

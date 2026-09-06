@@ -14,7 +14,7 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -61,7 +61,6 @@ import {
 } from '@/components/shadcn-studio/data-table/data-table-parts'
 import DatePicker from '@/components/common/DatePicker'
 import { runBulk } from '@/lib/bulk'
-import { initialsOf } from '@/types/employee'
 import {
   useCreateRequest,
   useDecideRequest,
@@ -147,6 +146,12 @@ export function TimeOffRequests() {
   const [formError, setFormError] = useState<string | null>(null)
 
   const canDecide = !!user && CAN_DECIDE.includes(user.role)
+  /**
+   * An Employee only ever sees their own requests, so every row carries the
+   * same name and the same department. Columns and filters that cannot tell
+   * one row from another are dropped rather than shown holding one value.
+   */
+  const isSelf = user?.role === 'EMPLOYEE'
   const canRequest = !!user?.employeeId
 
   const duration = durationBetween(start, end)
@@ -179,7 +184,10 @@ export function TimeOffRequests() {
 
   const columns = useMemo<ColumnDef<TimeOffRequest>[]>(
     () => [
-      {
+      // Ticking rows exists to approve or refuse them in bulk; for anyone who
+      // cannot decide, the column is a row of boxes that do nothing.
+      ...(canDecide
+        ? [{
         id: 'select',
         enableSorting: false,
         header: ({ table }) => (
@@ -187,34 +195,37 @@ export function TimeOffRequests() {
             checked={
               table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() && 'indeterminate')
             }
+            // Only the pending rows are selectable, so this only ever ticks those.
             onCheckedChange={value => table.toggleAllRowsSelected(!!value)}
-            // Rows that cannot be decided are not selectable, so this only ever
-            // ticks the pending ones.
-            disabled={table.getPreFilteredRowModel().rows.every(r => !r.getCanSelect())}
             aria-label='Select every pending request'
           />
         ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            disabled={!row.getCanSelect()}
-            onCheckedChange={value => row.toggleSelected(!!value)}
-            aria-label={`Select request from ${row.original.employee?.name ?? 'employee'}`}
-          />
-        ),
+        // A request already decided, or the approver's own, can never be
+        // ticked — so it shows nothing rather than a box that does nothing.
+        cell: ({ row }) =>
+          row.getCanSelect() ? (
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={value => row.toggleSelected(!!value)}
+              aria-label={`Select request from ${row.original.employee?.name ?? 'employee'}`}
+            />
+          ) : null,
         size: 50
-      },
-      {
+      } as ColumnDef<TimeOffRequest>]
+        : []),
+      ...(isSelf
+        ? []
+        : [{
         id: 'employee',
         header: 'Employee',
         accessorFn: row => row.employee?.name ?? '',
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='size-9'>
-              <AvatarFallback className='text-xs'>
-                {initialsOf(row.original.employee?.name ?? '?')}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={row.original.employee?.name}
+              className='size-9'
+              fallbackClassName='text-xs'
+            />
             <div className='flex min-w-0 flex-col'>
               <span className='truncate font-medium'>{row.original.employee?.name ?? '—'}</span>
               <span className='text-muted-foreground truncate text-xs'>
@@ -231,7 +242,7 @@ export function TimeOffRequests() {
         accessorFn: row => row.employee?.department?.name ?? NO_DEPARTMENT,
         filterFn: 'equalsString',
         cell: ({ getValue }) => <span className='text-muted-foreground'>{getValue<string>()}</span>
-      },
+      }] as ColumnDef<TimeOffRequest>[]),
       {
         // Filter-only: the Start Date column already shows the exact day, so a
         // second date column would repeat it. Facets read the row model, not
@@ -297,7 +308,7 @@ export function TimeOffRequests() {
           )
       }
     ],
-    [canDecide]
+    [canDecide, isSelf]
   )
 
   const table = useReactTable({
@@ -447,7 +458,9 @@ export function TimeOffRequests() {
                 )}
               </div>
               <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4'>
-                <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                {!isSelf && (
+                  <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                )}
                 <DataTableFacetFilter column={table.getColumn('type')} label='Time Off Type' />
                 <DataTableFacetFilter
                   column={table.getColumn('period')}

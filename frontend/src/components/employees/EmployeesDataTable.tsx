@@ -34,7 +34,7 @@ import {
   getSortedRowModel,
   useReactTable
 } from '@tanstack/react-table'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -45,7 +45,7 @@ import {
   DataTablePagination
 } from '@/components/shadcn-studio/data-table/data-table-parts'
 import EmployeeStatusBadge from '@/components/employees/EmployeeStatusBadge'
-import { initialsOf, type EmployeeRow, type EmployeeStatus } from '@/types/employee'
+import { type EmployeeRow, type EmployeeStatus } from '@/types/employee'
 
 /**
  * The three faceted filters below deliberately do not repeat the ones in the
@@ -70,9 +70,7 @@ const columns: ColumnDef<EmployeeRow>[] = [
     accessorKey: 'name',
     cell: ({ row }) => (
       <div className='flex items-center gap-3'>
-        <Avatar>
-          <AvatarFallback>{initialsOf(row.original.name)}</AvatarFallback>
-        </Avatar>
+        <PersonAvatar name={row.original.name} />
         <div className='min-w-0'>
           <div className='truncate font-medium'>{row.original.name}</div>
           <div className='text-muted-foreground truncate text-xs'>{row.original.employeeCode}</div>

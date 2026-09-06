@@ -14,7 +14,7 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -63,7 +63,6 @@ import BulkImportDialog from '@/components/bulk/BulkImportDialog'
 import { allocationImportConfig } from '@/components/bulk/importConfigs'
 import { useImportContext } from '@/hooks/useImportContext'
 import { runBulk } from '@/lib/bulk'
-import { initialsOf } from '@/types/employee'
 
 import {
   useCreateAllocation,
@@ -133,6 +132,8 @@ export function TimeOffAllocations() {
   const importContext = useImportContext()
 
   const canManage = !!user && CAN_MANAGE.includes(user.role)
+  /** An Employee sees only their own balances, so the name repeats on every row. */
+  const isSelf = user?.role === 'EMPLOYEE'
 
   /**
    * Opens the grant dialog for every employee in the current selection.
@@ -216,7 +217,10 @@ export function TimeOffAllocations() {
 
   const columns = useMemo<ColumnDef<TimeOffAllocation>[]>(
     () => [
-      {
+      // No row is selectable without the right to manage balances, so the
+      // column would be a header box above a column of blanks.
+      ...(canManage
+        ? [{
         id: 'select',
         enableSorting: false,
         header: ({ table }) => (
@@ -228,28 +232,32 @@ export function TimeOffAllocations() {
             aria-label='Select every allocation'
           />
         ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            disabled={!row.getCanSelect()}
-            onCheckedChange={value => row.toggleSelected(!!value)}
-            aria-label={`Select allocation for ${row.original.employee?.name ?? 'employee'}`}
-          />
-        ),
+        // Your own balance is never yours to change, so it carries no box.
+        cell: ({ row }) =>
+          row.getCanSelect() ? (
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={value => row.toggleSelected(!!value)}
+              aria-label={`Select allocation for ${row.original.employee?.name ?? 'employee'}`}
+            />
+          ) : null,
         size: 50
-      },
-      {
+      } as ColumnDef<TimeOffAllocation>]
+        : []),
+      ...(isSelf
+        ? []
+        : [{
         id: 'employee',
         header: 'Employee',
         accessorFn: row => row.employee?.name ?? '',
         filterFn: 'equalsString',
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='size-9'>
-              <AvatarFallback className='text-xs'>
-                {initialsOf(row.original.employee?.name ?? '?')}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={row.original.employee?.name}
+              className='size-9'
+              fallbackClassName='text-xs'
+            />
             <div className='flex min-w-0 flex-col'>
               <span className='truncate font-medium'>{row.original.employee?.name ?? '—'}</span>
               <span className='text-muted-foreground truncate text-xs'>
@@ -259,7 +267,7 @@ export function TimeOffAllocations() {
           </div>
         ),
         size: 240
-      },
+      }] as ColumnDef<TimeOffAllocation>[]),
       {
         id: 'type',
         header: 'Time Off Type',
@@ -347,7 +355,7 @@ export function TimeOffAllocations() {
           ]
         : [])
     ],
-    [canManage]
+    [canManage, isSelf]
   )
 
   const table = useReactTable({
@@ -591,7 +599,9 @@ export function TimeOffAllocations() {
                 )}
               </div>
               <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4'>
-                <DataTableFacetFilter column={table.getColumn('employee')} label='Employee' />
+                {!isSelf && (
+                  <DataTableFacetFilter column={table.getColumn('employee')} label='Employee' />
+                )}
                 <DataTableFacetFilter column={table.getColumn('type')} label='Time Off Type' />
                 <DataTableFacetFilter column={table.getColumn('validityYear')} label='Validity Year' />
                 <DataTableFacetFilter column={table.getColumn('status')} label='Status' />

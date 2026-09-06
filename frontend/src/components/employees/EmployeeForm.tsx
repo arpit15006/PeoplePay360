@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,7 +37,6 @@ import { useEmployees } from '@/hooks/useEmployees'
 import {
   EMPLOYEE_STATUS_LABELS,
   EMPLOYEE_TYPE_LABELS,
-  initialsOf,
   type EmployeeStatus,
   type EmployeeType,
   type EmployeeUpdate,
@@ -193,9 +192,7 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
       {/* Header */}
       <div className='flex flex-wrap items-start justify-between gap-4'>
         <div className='flex items-center gap-4'>
-          <Avatar size='lg'>
-            <AvatarFallback>{initialsOf(employee?.name ?? draft.name ?? 'N E')}</AvatarFallback>
-          </Avatar>
+          <PersonAvatar name={employee?.name ?? draft.name ?? 'N E'} size='lg' />
           <div>
             <div className='flex items-center gap-3'>
               <h1 className='text-foreground text-2xl font-semibold tracking-tight'>
@@ -479,9 +476,7 @@ export function EmployeeForm({ mode }: { mode?: 'create' } = {}) {
                   onClick={() => navigate(`/employees/${person.id}`)}
                   className='hover:bg-muted/50 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors'
                 >
-                  <Avatar>
-                    <AvatarFallback>{initialsOf(person.name)}</AvatarFallback>
-                  </Avatar>
+                  <PersonAvatar name={person.name} />
                   <div className='min-w-0'>
                     <p className='truncate text-sm font-medium'>{person.name}</p>
                     <p className='text-muted-foreground truncate text-xs'>{person.jobPosition}</p>

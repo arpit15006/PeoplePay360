@@ -65,7 +65,8 @@ export const attendanceSessionApi = {
   pause: () => api.post<Env<SessionState>>('/attendance/session/pause').then(unwrap),
   resume: () => api.post<Env<SessionState>>('/attendance/session/resume').then(unwrap),
   stop: () => api.post<Env<SessionState>>('/attendance/session/stop').then(unwrap),
-  heartbeat: () => api.post<Env<SessionState>>('/attendance/session/heartbeat').then(unwrap),
+  /** Returns only whether a session is still running — see the service for why. */
+  heartbeat: () => api.post<Env<{ alive: boolean }>>('/attendance/session/heartbeat').then(unwrap),
   explain: (sessionId: string, reason: string) =>
     api.post<Env<SessionState>>('/attendance/session/explain', { sessionId, reason }).then(unwrap),
   whoIsWorking: () => api.get<Env<WorkingNow[]>>('/attendance/who-is-working').then(unwrap),

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -38,7 +38,6 @@ import { DataTablePaginationBase } from '@/components/shadcn-studio/data-table/d
 import BulkImportDialog from '@/components/bulk/BulkImportDialog'
 import { attendanceImportConfig } from '@/components/bulk/importConfigs'
 import { useImportContext } from '@/hooks/useImportContext'
-import { useClientPagination } from '@/hooks/useClientPagination'
 import WorkSessionCard from '@/components/attendance/WorkSessionCard'
 import { useAttendance, useCreateAttendance, useUpdateAttendance } from '@/hooks/useAttendance'
 import { useAuth } from '@/context/AuthContext'
@@ -145,11 +144,22 @@ export function AttendanceList() {
   const [searchParams, setSearchParams] = useSearchParams()
   const employeeId = searchParams.get('employeeId') ?? undefined
 
-  const { data: records = [], isLoading, isError, error } = useAttendance(employeeId)
+  // The page and the status filter are sent to the server: a month of
+  // attendance for a large workforce is tens of thousands of rows, and paging
+  // them in the browser meant downloading all of them to show twenty-five.
+  const [status, setStatus] = useState('all')
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
+  const {
+    data: pageData,
+    isLoading,
+    isError,
+    error
+  } = useAttendance({ employeeId, page: pageIndex + 1, pageSize, status })
+  const records = pageData?.rows ?? []
   const createAttendance = useCreateAttendance()
   const updateAttendance = useUpdateAttendance()
 
-  const [status, setStatus] = useState('all')
   const [editing, setEditing] = useState<AttendanceRow | null>(null)
   const [draft, setDraft] = useState<{ checkIn: string; checkOut: string; status: AttendanceStatus; notes: string }>({
     checkIn: '',
@@ -159,19 +169,27 @@ export function AttendanceList() {
   })
 
   const canCorrect = !!user && CAN_CORRECT.includes(user.role)
+  /** An Employee only ever sees their own attendance, so the name repeats. */
+  const isEmployee = user?.role === 'EMPLOYEE'
+
+  // Employee, Date, In, Out, Hours, Overtime, Status, and the correct button.
+  const columnCount = 7 + (isEmployee ? -1 : 0) + (canCorrect ? 1 : 0)
   const [importing, setImporting] = useState(false)
   const importContext = useImportContext()
 
-  const rows = useMemo(() => {
-    const filtered =
-      status === 'all' ? records : records.filter(r => r.status === (status as AttendanceStatus))
-    return [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [records, status])
+  // Already filtered and ordered by the server, so the page is rendered as it
+  // arrives.
+  const page = records
+  const total = pageData?.total ?? 0
+  const pageCount = pageData?.totalPages ?? 1
 
-  // A month of attendance for 1,000 employees is ~22,000 rows; render a page
-  // of them rather than the lot.
-  const { page, pageIndex, pageSize, pageCount, total, onPageChange, onPageSizeChange } =
-    useClientPagination(rows, 25)
+  // Changing the filter or the page size must not leave the pager pointing at
+  // a page that no longer exists.
+  const onPageChange = (next: number) => setPageIndex(next)
+  const onPageSizeChange = (next: number) => {
+    setPageSize(next)
+    setPageIndex(0)
+  }
 
 
   const openCorrection = (record: AttendanceRow) => {
@@ -227,7 +245,13 @@ export function AttendanceList() {
 
       {/* Toolbar */}
       <div className='flex flex-wrap items-center gap-2'>
-        <Select value={status} onValueChange={setStatus}>
+        <Select
+          value={status}
+          onValueChange={next => {
+            setStatus(next)
+            setPageIndex(0)
+          }}
+        >
           <SelectTrigger className='w-44'>
             <SelectValue />
           </SelectTrigger>
@@ -271,7 +295,8 @@ export function AttendanceList() {
             <Table>
               <TableHeader>
                 <TableRow className='bg-muted/50'>
-                  <TableHead>Employee</TableHead>
+                  {/* Every row is this employee's own, so the name would repeat. */}
+                  {!isEmployee && <TableHead>Employee</TableHead>}
                   <TableHead>Date</TableHead>
                   <TableHead>Check In</TableHead>
                   <TableHead>Check Out</TableHead>
@@ -282,21 +307,23 @@ export function AttendanceList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.length === 0 ? (
+                {page.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canCorrect ? 8 : 7} className='h-24 text-center'>
+                    <TableCell colSpan={columnCount} className='h-24 text-center'>
                       No attendance records match the current filters.
                     </TableCell>
                   </TableRow>
                 ) : (
                   page.map(record => (
                     <TableRow key={record.id}>
-                      <TableCell className='font-medium'>
-                        <div>{record.employee?.name ?? '—'}</div>
-                        <div className='text-muted-foreground text-xs'>
-                          {record.employee?.employeeCode}
-                        </div>
-                      </TableCell>
+                      {!isEmployee && (
+                        <TableCell className='font-medium'>
+                          <div>{record.employee?.name ?? '—'}</div>
+                          <div className='text-muted-foreground text-xs'>
+                            {record.employee?.employeeCode}
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell>{formatAttendanceDate(record.date)}</TableCell>
                       <TableCell className='tabular-nums'>{record.checkIn || '—'}</TableCell>
                       <TableCell className='tabular-nums'>

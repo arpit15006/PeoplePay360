@@ -20,7 +20,7 @@ import {
   useReactTable
 } from '@tanstack/react-table'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -87,7 +87,6 @@ import { useDepartments } from '@/hooks/useEmployee'
 import { contractsApi } from '@/api/contracts'
 import { useAuth } from '@/context/AuthContext'
 import { runBulk } from '@/lib/bulk'
-import { initialsOf } from '@/types/employee'
 import DatePicker from '@/components/common/DatePicker'
 import { formatDate, formatWage, localDateToIso, type ContractStatus } from '@/types/contract'
 import type { Role } from '@/types/user'
@@ -157,6 +156,8 @@ export function ContractsList() {
 
   const canManage = !!user && CAN_MANAGE.includes(user.role)
   const canAssign = !!user && CAN_ASSIGN.includes(user.role)
+  /** An Employee sees only their own contracts — one name, one department. */
+  const isSelf = user?.role === 'EMPLOYEE'
   const { data: structures = [] } = useSalaryStructures(canAssign)
   const { data: departments = [] } = useDepartments()
 
@@ -248,9 +249,13 @@ export function ContractsList() {
     })
   }, [contracts, employees, employeeId, search])
 
+  const hasUnassigned = rows.some(r => r.kind === 'unassigned')
+
   const columns = useMemo<ColumnDef<Row>[]>(
     () => [
-      ...(canAssign
+      // No employee is waiting for a contract, so the column would be a row of
+      // blanks. It appears when there is something to assign.
+      ...(canAssign && hasUnassigned
         ? [
             {
               id: 'select',
@@ -263,36 +268,39 @@ export function ContractsList() {
                     (table.getIsSomeRowsSelected() && 'indeterminate')
                   }
                   onCheckedChange={value => table.toggleAllRowsSelected(!!value)}
-                  disabled={table.getPreFilteredRowModel().rows.every(r => !r.getCanSelect())}
                   className={SELECT_BOX}
                   aria-label='Select every employee without a contract'
                 />
               ),
-              cell: ({ row }) => (
-                <div onClick={e => e.stopPropagation()}>
-                  <Checkbox
-                    checked={row.getIsSelected()}
-                    disabled={!row.getCanSelect()}
-                    onCheckedChange={value => row.toggleSelected(!!value)}
-                    className={SELECT_BOX}
-                    aria-label={`Select ${row.original.employeeName}`}
-                  />
-                </div>
-              )
+              // A row that already has a contract can never be ticked, so it
+              // gets no box at all rather than a dead one.
+              cell: ({ row }) =>
+                row.getCanSelect() ? (
+                  <div onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={row.getIsSelected()}
+                      onCheckedChange={value => row.toggleSelected(!!value)}
+                      className={SELECT_BOX}
+                      aria-label={`Select ${row.original.employeeName}`}
+                    />
+                  </div>
+                ) : null
             } as ColumnDef<Row>
           ]
         : []),
-      {
+      ...(isSelf
+        ? []
+        : [{
         id: 'employee',
         header: 'Employee',
         accessorFn: row => row.employeeName,
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='size-9'>
-              <AvatarFallback className='text-xs'>
-                {initialsOf(row.original.employeeName)}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={row.original.employeeName}
+              className='size-9'
+              fallbackClassName='text-xs'
+            />
             <div className='flex min-w-0 flex-col'>
               <span className='truncate font-medium'>{row.original.employeeName}</span>
               <span className='text-muted-foreground truncate text-xs'>
@@ -354,7 +362,7 @@ export function ContractsList() {
         accessorFn: row => row.departmentName,
         filterFn: 'equalsString',
         cell: ({ getValue }) => <span className='text-muted-foreground'>{getValue<string>()}</span>
-      },
+      }] as ColumnDef<Row>[]),
       {
         id: 'position',
         header: 'Position',
@@ -439,7 +447,7 @@ export function ContractsList() {
           ]
         : [])
     ],
-    [canAssign, canManage, navigate]
+    [canAssign, canManage, hasUnassigned, isSelf, navigate]
   )
 
   const table = useReactTable({
@@ -608,7 +616,9 @@ export function ContractsList() {
                     />
                   </div>
                 </div>
-                <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                {!isSelf && (
+                  <DataTableFacetFilter column={table.getColumn('department')} label='Department' />
+                )}
                 <DataTableFacetFilter
                   column={table.getColumn('structure')}
                   label='Salary Structure'

@@ -23,9 +23,14 @@ export const payrunsApi = {
   compute: (id: string) => api.post<ActionEnv>(`/payruns/${id}/compute`).then(unwrap),
   validate: (id: string) => api.post<ActionEnv>(`/payruns/${id}/validate`).then(unwrap),
   markPaid: (id: string) => api.post<ActionEnv>(`/payruns/${id}/mark-paid`).then(unwrap),
-  sendPayslips: (id: string) =>
+  /**
+   * `payslipIds` narrows the send to the chosen employees. Omitted, the server
+   * sends the whole payrun, which is what the dialog means by "all".
+   */
+  sendPayslips: (id: string, payslipIds?: string[]) =>
     api.post<{ success: boolean; message?: string; sent?: number; failed?: number }>(
-      `/payruns/${id}/send-payslips`
+      `/payruns/${id}/send-payslips`,
+      payslipIds ? { payslipIds } : undefined
     ),
 
   payslips: (payrunId?: string) =>

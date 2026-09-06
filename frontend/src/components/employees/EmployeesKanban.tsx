@@ -1,13 +1,13 @@
 import { useState } from 'react'
 
+import { PersonAvatar } from '@/components/common/PersonAvatar'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconMail, IconBriefcase } from '@tabler/icons-react'
 
 import EmployeeStatusBadge from '@/components/employees/EmployeeStatusBadge'
-import { initialsOf, type EmployeeRow } from '@/types/employee'
+import { type EmployeeRow } from '@/types/employee'
 
 /**
  * PRD Screen 2 Kanban view — the shadcn-studio empty-state-10 layout
@@ -68,9 +68,7 @@ const EmployeesKanban = ({ data, onCardClick }: Props) => {
                   <CardContent className='h-full space-y-3'>
                     <div className='flex items-start justify-between gap-2'>
                       <div className='flex min-w-0 items-center gap-3'>
-                        <Avatar>
-                          <AvatarFallback>{initialsOf(employee.name)}</AvatarFallback>
-                        </Avatar>
+                        <PersonAvatar name={employee.name} />
                         <div className='min-w-0'>
                           <h3 className='truncate text-base font-medium'>{employee.name}</h3>
                           <p className='text-muted-foreground truncate text-sm'>{employee.jobPosition}</p>
