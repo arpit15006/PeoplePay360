@@ -36,6 +36,11 @@ export const checkIn = handler((id) => AttendanceSessionService.checkIn(id));
 export const pause = handler((id) => AttendanceSessionService.pause(id));
 export const resume = handler((id) => AttendanceSessionService.resume(id));
 export const stop = handler((id) => AttendanceSessionService.stop(id, SessionEnd.USER));
+/**
+ * Says only whether a session is still running. The screen keeps its own copy
+ * of the day and refetches on action, so returning the whole state here would
+ * be a second query per minute per employee for nothing.
+ */
 export const heartbeat = handler((id) => AttendanceSessionService.heartbeat(id));
 export const previewStop = handler((id) => AttendanceSessionService.previewStop(id));
 

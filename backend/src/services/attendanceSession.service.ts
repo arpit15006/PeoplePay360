@@ -2,7 +2,7 @@ import { AttendanceStatus, SessionEnd, SessionKind } from '@prisma/client';
 
 import prisma from '../config/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../utils/errors';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, HR_AUDIENCE, SocketEvents } from '../socket/emitter';
 import { orgClock } from '../attendance/orgTime';
 import {
   HEARTBEAT_TIMEOUT_MINUTES,
@@ -260,7 +260,11 @@ export class AttendanceSessionService {
     });
 
     await this.recomputeDay(attendance.id, now);
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { employeeId, running: 'WORK' });
+    emitEvent(
+      SocketEvents.ATTENDANCE_UPDATED,
+      { employeeId, running: 'WORK' },
+      { employeeIds: [employeeId], roles: HR_AUDIENCE }
+    );
     return this.getState(employeeId, now);
   }
 
@@ -286,7 +290,11 @@ export class AttendanceSessionService {
     ]);
 
     await this.recomputeDay(open.attendanceId, now);
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { employeeId, running: 'BREAK' });
+    emitEvent(
+      SocketEvents.ATTENDANCE_UPDATED,
+      { employeeId, running: 'BREAK' },
+      { employeeIds: [employeeId], roles: HR_AUDIENCE }
+    );
     return this.getState(employeeId, now);
   }
 
@@ -312,7 +320,11 @@ export class AttendanceSessionService {
     ]);
 
     await this.recomputeDay(open.attendanceId, now);
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { employeeId, running: 'WORK' });
+    emitEvent(
+      SocketEvents.ATTENDANCE_UPDATED,
+      { employeeId, running: 'WORK' },
+      { employeeIds: [employeeId], roles: HR_AUDIENCE }
+    );
     return this.getState(employeeId, now);
   }
 
@@ -336,7 +348,11 @@ export class AttendanceSessionService {
     });
 
     await this.recomputeDay(open.attendanceId, now);
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { employeeId, running: null });
+    emitEvent(
+      SocketEvents.ATTENDANCE_UPDATED,
+      { employeeId, running: null },
+      { employeeIds: [employeeId], roles: HR_AUDIENCE }
+    );
     return this.getState(employeeId, now);
   }
 
@@ -347,15 +363,22 @@ export class AttendanceSessionService {
    * timeout hands the segment to the sweeper, which closes it at the last
    * heartbeat — so a closed laptop is never credited as work.
    */
-  static async heartbeat(employeeId: string, now = new Date()): Promise<SessionState> {
-    const open = await this.openSegment(employeeId, now);
-    if (open) {
-      await prisma.attendanceSession.update({
-        where: { id: open.id },
-        data: { lastHeartbeatAt: now },
-      });
-    }
-    return this.getState(employeeId, now);
+  static async heartbeat(employeeId: string, now = new Date()): Promise<{ alive: boolean }> {
+    // One statement, and nothing read back. This runs once a minute for every
+    // signed-in employee, so it is the most frequent call in the system: it
+    // used to find the open segment, update it, then rebuild the whole day to
+    // return state the screen already had — four round trips to say "still
+    // here". The update itself finds the row, and the count says whether one
+    // was still running.
+    const { count } = await prisma.attendanceSession.updateMany({
+      where: {
+        endedAt: null,
+        attendance: { employeeId, date: dayKey(now) },
+      },
+      data: { lastHeartbeatAt: now },
+    });
+
+    return { alive: count > 0 };
   }
 
   /**
@@ -441,7 +464,8 @@ export class AttendanceSessionService {
     }
 
     console.log(`[Attendance] closed ${stale.length} stale session(s) at their last heartbeat`);
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { swept: stale.length });
+    // A sweep touches other people's days, so only the watchers hear about it.
+    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { swept: stale.length }, { roles: HR_AUDIENCE });
     return stale.length;
   }
 

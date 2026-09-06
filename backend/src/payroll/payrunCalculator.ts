@@ -5,7 +5,7 @@ import { workedDaysFrom } from './workedDaysCalculator';
 import { getWorkingDaysInRange } from '../utils/dates';
 import { executeSalaryRules } from './salaryRuleEngine';
 import { Prisma, PayrunStatus, PayslipStatus, RuleCategory, TimeOffStatus } from '@prisma/client';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, PAYROLL_AUDIENCE, SocketEvents } from '../socket/emitter';
 import { STRUCTURE_ACTIVE } from '../services/salaryStructure.service';
 
 export class PayrunCalculator {
@@ -251,10 +251,11 @@ export class PayrunCalculator {
       },
     });
 
-    emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, {
-      payrunId,
-      status: PayrunStatus.COMPUTED,
-    });
+    emitEvent(
+      SocketEvents.PAYRUN_STATUS_CHANGED,
+      { payrunId, status: PayrunStatus.COMPUTED },
+      { roles: PAYROLL_AUDIENCE }
+    );
 
     const computed = new Set(computedIds);
     return {

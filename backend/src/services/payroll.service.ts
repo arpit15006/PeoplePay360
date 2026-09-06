@@ -5,7 +5,7 @@ import { PayrunStatus, PayslipStatus, Prisma } from '@prisma/client';
 import { PayrunCalculator } from '../payroll/payrunCalculator';
 import { validatePayrunTransition } from '../payroll/payrollValidator';
 import { STRUCTURE_ACTIVE } from './salaryStructure.service';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, PAYROLL_AUDIENCE, SocketEvents } from '../socket/emitter';
 
 export interface CreatePayrunInput {
   salaryStructureId: string;
@@ -209,7 +209,9 @@ export class PayrollService {
       },
     });
 
-    emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id, status: PayrunStatus.VALIDATED });
+    emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id, status: PayrunStatus.VALIDATED }, {
+      roles: PAYROLL_AUDIENCE,
+    });
     return updated;
   }
 
@@ -243,7 +245,9 @@ export class PayrollService {
       });
     });
 
-    emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id, status: PayrunStatus.PAID });
+    emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id, status: PayrunStatus.PAID }, {
+      roles: PAYROLL_AUDIENCE,
+    });
     return updated;
   }
 

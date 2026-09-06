@@ -3,7 +3,7 @@ import prisma from '../config/db';
 import { env } from '../config/env';
 import { NotFoundError, ValidationError } from '../utils/errors';
 import { PayrunStatus, PayslipStatus } from '@prisma/client';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, PAYROLL_AUDIENCE, SocketEvents } from '../socket/emitter';
 import { generatePayslipPdf, toWords } from './payslipPdf.service';
 
 // The promise is cached, not just the resolved transporter: parallel sends all
@@ -484,7 +484,15 @@ export class EmailService {
   /**
    * Bulk send payslips for an entire payrun.
    */
-  static async sendBulkPayrunEmails(payrunId: string) {
+  /**
+   * Emails the payslips of one payrun.
+   *
+   * `payslipIds` narrows the send to the employees ticked in the send dialog.
+   * Without it the whole payrun goes out, which is what an untouched dialog
+   * means. The filter is applied here rather than trusted from the caller's
+   * count, so an id that does not belong to this payrun simply matches nothing.
+   */
+  static async sendBulkPayrunEmails(payrunId: string, payslipIds?: string[]) {
     const payrun = await prisma.payrun.findUnique({
       where: { id: payrunId },
       include: {
@@ -504,19 +512,45 @@ export class EmailService {
       throw new ValidationError(`Cannot send payslips for a payrun with status '${payrun.status}'. Payrun must be VALIDATED or PAID.`);
     }
 
+    const chosen =
+      payslipIds && payslipIds.length > 0
+        ? payrun.payslips.filter((p) => payslipIds.includes(p.id))
+        : payrun.payslips;
+
+    if (chosen.length === 0) {
+      throw new ValidationError('None of the selected payslips belong to this payrun.');
+    }
+
+    // The dialog disables its button on these, but a disabled button guards
+    // nothing — the rule has to hold here. Only blockers belonging to the
+    // employees actually being sent to count: an issue with someone left
+    // unticked is not a reason to stop the rest going out.
+    const { collectPayrunWarnings, blocksSending } = await import('../payroll/payrunWarnings');
+    const recipientIds = new Set(chosen.map((p) => p.employeeId));
+    const blockers = (await collectPayrunWarnings(payrunId)).filter(
+      (w) => blocksSending(w) && (!w.employeeId || recipientIds.has(w.employeeId))
+    );
+
+    if (blockers.length > 0) {
+      throw new ValidationError(
+        `Resolve ${blockers.length} blocking issue${blockers.length === 1 ? '' : 's'} before sending: ` +
+          blockers.map((w) => w.message).join(' ')
+      );
+    }
+
     const startedAt = Date.now();
 
     // Emitted as each send settles. The sends run in parallel, so this counts
     // completions rather than reporting a position in the list — which is what
     // the screen needs to draw an honest bar.
     let settled = 0;
-    const total = payrun.payslips.length;
+    const total = chosen.length;
 
     // Sends run in parallel over the pooled connections rather than one after
     // another, so a payrun costs roughly (employees / MAX_PARALLEL_SENDS)
     // round trips instead of one per employee.
     const results = await mapWithConcurrency(
-      payrun.payslips,
+      chosen,
       MAX_PARALLEL_SENDS,
       async (payslip) => {
         const base = {
@@ -543,24 +577,20 @@ export class EmailService {
           );
 
           settled += 1;
-          emitEvent(SocketEvents.PAYSLIP_SEND_PROGRESS, {
-            payrunId,
-            done: settled,
-            total,
-            employee: payslip.employee.name,
-            ok: true,
-          });
+          emitEvent(
+            SocketEvents.PAYSLIP_SEND_PROGRESS,
+            { payrunId, done: settled, total, employee: payslip.employee.name, ok: true },
+            { roles: PAYROLL_AUDIENCE }
+          );
 
           return { ...base, success: true, previewUrl: sendResult.previewUrl || null };
         } catch (err) {
           settled += 1;
-          emitEvent(SocketEvents.PAYSLIP_SEND_PROGRESS, {
-            payrunId,
-            done: settled,
-            total,
-            employee: payslip.employee.name,
-            ok: false,
-          });
+          emitEvent(
+            SocketEvents.PAYSLIP_SEND_PROGRESS,
+            { payrunId, done: settled, total, employee: payslip.employee.name, ok: false },
+            { roles: PAYROLL_AUDIENCE }
+          );
 
           return { ...base, success: false, error: (err as Error).message };
         }
@@ -585,7 +615,9 @@ export class EmailService {
         data: { status: PayrunStatus.SENT },
       });
 
-      emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id: payrunId, status: PayrunStatus.SENT });
+      emitEvent(SocketEvents.PAYRUN_STATUS_CHANGED, { id: payrunId, status: PayrunStatus.SENT }, {
+        roles: PAYROLL_AUDIENCE,
+      });
     }
 
     console.log(

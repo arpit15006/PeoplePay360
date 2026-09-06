@@ -11,10 +11,14 @@ export async function listAttendance(req: Request, res: Response, next: NextFunc
       status: req.query.status as string | undefined,
       month: req.query.month as string | undefined,
       year: req.query.year as string | undefined,
+      page: req.query.page as string | undefined,
+      pageSize: req.query.pageSize as string | undefined,
     };
 
-    const records = await AttendanceService.listAttendance(filters, req.user!);
-    res.json({ success: true, count: records.length, data: records });
+    // The service returns the page plus its meta, so the pager on the screen
+    // knows how many there are without the rows being sent.
+    const page = await AttendanceService.listAttendance(filters, req.user!);
+    res.json({ success: true, ...page });
   } catch (err) {
     next(err);
   }

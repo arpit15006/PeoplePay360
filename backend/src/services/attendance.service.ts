@@ -1,11 +1,12 @@
 import prisma from '../config/db';
 import { LATE_GRACE_MINUTES } from '../attendance/sessionRules';
+import { pageQuery, paged, type PageParams } from '../utils/pagination';
 import { CreateAttendanceInput, UpdateAttendanceInput } from '../validators/attendance.validator';
 import { NotFoundError, ForbiddenError, ConflictError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
 import { AttendanceStatus, Prisma } from '@prisma/client';
 import { calculateWorkedHours, parseTimeToMinutes } from '../utils/dates';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, HR_AUDIENCE, SocketEvents } from '../socket/emitter';
 
 /**
  * The unpaid meal break the employee's schedule defines for a given date.
@@ -87,7 +88,7 @@ export function overtimeFrom(workedHours: number, scheduledHours: number): numbe
   return Math.max(0, Math.round((workedHours - scheduledHours) * 100) / 100);
 }
 
-export interface AttendanceFilters {
+export interface AttendanceFilters extends PageParams {
   employeeId?: string;
   startDate?: string;
   endDate?: string;
@@ -105,7 +106,9 @@ export class AttendanceService {
     const where: Prisma.AttendanceWhereInput = {};
 
     if (user.role === 'EMPLOYEE') {
-      if (!user.employeeId) return [];
+      // An account with no employee record has no attendance; the shape still
+      // has to match so the caller can read it the same way.
+      if (!user.employeeId) return paged([], 0, pageQuery(filters));
       where.employeeId = user.employeeId;
     } else if (filters.employeeId) {
       where.employeeId = filters.employeeId;
@@ -129,23 +132,31 @@ export class AttendanceService {
       where.date = { gte: start, lte: end };
     }
 
-    const attendances = await prisma.attendance.findMany({
-      where,
-      orderBy: { date: 'desc' },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            name: true,
-            employeeCode: true,
-            jobPosition: true,
-            department: { select: { id: true, name: true } },
+    // Counted and fetched together: the total drives the pager, and asking for
+    // it separately would double the round trips on the busiest list here.
+    const q = pageQuery(filters);
+    const [rows, total] = await Promise.all([
+      prisma.attendance.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        skip: q.skip,
+        take: q.take,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              employeeCode: true,
+              jobPosition: true,
+              department: { select: { id: true, name: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.attendance.count({ where }),
+    ]);
 
-    return attendances;
+    return paged(rows, total, q);
   }
 
   /**
@@ -236,7 +247,10 @@ export class AttendanceService {
       },
     });
 
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, created);
+    emitEvent(SocketEvents.ATTENDANCE_UPDATED, created, {
+      employeeIds: [created.employeeId],
+      roles: HR_AUDIENCE,
+    });
     return created;
   }
 
@@ -302,7 +316,10 @@ export class AttendanceService {
       },
     });
 
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, updated);
+    emitEvent(SocketEvents.ATTENDANCE_UPDATED, updated, {
+      employeeIds: [updated.employeeId],
+      roles: HR_AUDIENCE,
+    });
     return updated;
   }
 

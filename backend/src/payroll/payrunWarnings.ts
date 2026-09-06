@@ -11,6 +11,28 @@ export interface PayrunWarning {
 }
 
 /**
+ * The error-severity codes that genuinely stop a payslip being emailed.
+ *
+ * MISSING_BANK_DETAILS is deliberately absent. It stops an employee being
+ * *paid*; it has no bearing on emailing them a PDF of what they are owed, and
+ * blocking a 200-person send over one missing IFSC would be wrong.
+ */
+export const SEND_BLOCKING_CODES = [
+  'DUPLICATE_PAYSLIP',
+  'MISSING_EMAIL',
+  'NON_POSITIVE_NET',
+  'NO_APPLICABLE_CONTRACT',
+] as const;
+
+/** Whether a warning should stop the send for the employee it names. */
+export function blocksSending(warning: PayrunWarning): boolean {
+  return (
+    warning.severity === 'error' &&
+    (SEND_BLOCKING_CODES as readonly string[]).includes(warning.code)
+  );
+}
+
+/**
  * Collects the issues a payroll officer should see before finalising a payrun.
  *
  * The spec asks for warnings such as missing bank details and duplicate payslips

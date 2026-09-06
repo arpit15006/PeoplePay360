@@ -48,7 +48,8 @@ export function invalidateUserCache(userId?: string): void {
   else userCache.clear();
 }
 
-async function loadUser(userId: string): Promise<AuthUser | null> {
+/** Exported so the socket handshake identifies a connection the same way. */
+export async function loadUser(userId: string): Promise<AuthUser | null> {
   const now = Date.now();
 
   const cached = userCache.get(userId);

@@ -2,7 +2,7 @@ import prisma from '../config/db';
 import { AttendanceStatus } from '@prisma/client';
 import { calculateWorkedHours } from '../utils/dates';
 import { shiftContextFor, overtimeFrom, lateAgainst } from './attendance.service';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, HR_AUDIENCE, SocketEvents } from '../socket/emitter';
 import { BulkImportResult, lookupKey, rowError } from './bulkImport.types';
 
 export interface AttendanceImportRow {
@@ -243,7 +243,11 @@ export async function bulkImportAttendance(
   // One refresh for the whole batch — emitting per row would fire a thousand
   // socket events and re-render every connected client a thousand times.
   if (imported.length > 0) {
-    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { bulk: true, count: imported.length });
+    // Everyone in the file would be a long list of rooms; the people who ran
+    // the import and those who watch attendance are the ones who need it.
+    emitEvent(SocketEvents.ATTENDANCE_UPDATED, { bulk: true, count: imported.length }, {
+      roles: HR_AUDIENCE,
+    });
   }
 
   return { imported, errors };

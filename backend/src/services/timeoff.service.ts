@@ -9,7 +9,7 @@ import {
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
 import { TimeOffStatus, Prisma, Role } from '@prisma/client';
-import { emitEvent, SocketEvents } from '../socket/emitter';
+import { emitEvent, HR_AUDIENCE, SocketEvents } from '../socket/emitter';
 
 
 /**
@@ -347,7 +347,10 @@ export class TimeOffService {
       },
     });
 
-    emitEvent(SocketEvents.TIMEOFF_UPDATED, request);
+    emitEvent(SocketEvents.TIMEOFF_UPDATED, request, {
+      employeeIds: [request.employeeId],
+      roles: HR_AUDIENCE,
+    });
     return request;
   }
 
@@ -416,7 +419,10 @@ export class TimeOffService {
       return updatedRequest;
     });
 
-    emitEvent(SocketEvents.TIMEOFF_UPDATED, result);
+    emitEvent(SocketEvents.TIMEOFF_UPDATED, result, {
+      employeeIds: [result.employeeId],
+      roles: HR_AUDIENCE,
+    });
     return result;
   }
 
@@ -484,7 +490,10 @@ export class TimeOffService {
       return updatedRequest;
     });
 
-    emitEvent(SocketEvents.TIMEOFF_UPDATED, result);
+    emitEvent(SocketEvents.TIMEOFF_UPDATED, result, {
+      employeeIds: [result.employeeId],
+      roles: HR_AUDIENCE,
+    });
     return result;
   }
 }

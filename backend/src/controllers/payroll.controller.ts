@@ -71,7 +71,14 @@ export async function markPayrunPaid(req: Request, res: Response, next: NextFunc
 export async function sendBulkPayslips(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { EmailService } = await import('../services/email.service');
-    const result = await EmailService.sendBulkPayrunEmails(req.params.id);
+    // Absent or empty, the send covers the whole payrun; the dialog sends the
+    // ticked ids when the operator has narrowed it.
+    const { payslipIds } = (req.body ?? {}) as { payslipIds?: unknown };
+    const chosen =
+      Array.isArray(payslipIds) && payslipIds.every((id) => typeof id === 'string')
+        ? (payslipIds as string[])
+        : undefined;
+    const result = await EmailService.sendBulkPayrunEmails(req.params.id, chosen);
     res.json({ success: true, message: 'Payslips sent to employees', ...result });
   } catch (err) {
     next(err);
