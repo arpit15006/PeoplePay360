@@ -1,13 +1,27 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldLabel, FieldGroup } from '@/components/ui/field'
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Spinner } from '@/components/ui/spinner'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, KeyRound } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { roleLandingPath, type Role } from '@/types/user'
+import { authApi } from '@/api/auth'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -41,6 +55,34 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Forgot Password modal state
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState<string | null>(null)
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail.trim()) {
+      setForgotError('Please enter your email address.')
+      return
+    }
+
+    try {
+      setForgotLoading(true)
+      setForgotError(null)
+      const res = await authApi.forgotPassword({ email: forgotEmail.trim() })
+      toast.success(res.message || 'Temporary password sent to your email!')
+      setForgotOpen(false)
+      setForgotEmail('')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not request password reset.'
+      setForgotError(msg)
+    } finally {
+      setForgotLoading(false)
+    }
+  }
 
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -155,16 +197,17 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
               Remember me
             </label>
           </div>
-          <a
-            href="#forgot-password"
-            onClick={(e) => {
-              e.preventDefault()
-              alert('Password reset link will be sent to your registered corporate email.')
+          <button
+            type="button"
+            onClick={() => {
+              setForgotError(null)
+              setForgotEmail(email || '')
+              setForgotOpen(true)
             }}
-            className="text-xs font-medium text-primary hover:underline"
+            className="text-xs font-medium text-primary hover:underline cursor-pointer"
           >
             Forgot password?
-          </a>
+          </button>
         </div>
 
         {/* Submit button */}
@@ -215,8 +258,81 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
           </div>
         </div>
       </FieldGroup>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent className="sm:max-w-md p-6 gap-4">
+          <DialogHeader className="gap-1.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <KeyRound className="size-5" />
+              </div>
+              <DialogTitle className="text-base font-semibold">
+                Reset Your Password
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enter your registered corporate email address. A temporary password will be generated and emailed to your inbox.
+            </DialogDescription>
+          </DialogHeader>
+
+          {forgotError && (
+            <Alert variant="destructive" className="py-2.5">
+              <AlertDescription className="text-xs">{forgotError}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="forgot-email" className="text-xs font-medium">
+                Registered Work Email
+              </Label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-muted-foreground pointer-events-none flex items-center">
+                  <Mail className="size-4" />
+                </span>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  required
+                  autoFocus
+                  placeholder="name@company.com"
+                  value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForgotOpen(false)}
+                disabled={forgotLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={forgotLoading || !forgotEmail.trim()}
+              >
+                {forgotLoading ? (
+                  <>
+                    <Spinner className="mr-2" />
+                    Sending…
+                  </>
+                ) : (
+                  'Send Temporary Password'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }
 
 export default LoginForm
+

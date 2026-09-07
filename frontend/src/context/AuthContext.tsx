@@ -11,6 +11,8 @@ interface AuthContextValue {
   isBootstrapping: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  setUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authApi
       .me()
       .then(({ user: me }) => {
-        if (!cancelled) setUser(me);
+        if (!cancelled) setUser(me ?? null);
       })
       .catch(() => {
         if (!cancelled) setUser(null);
@@ -87,7 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState !== 'visible') return;
       authApi
         .me()
-        .then(({ user: me }) => setUser(current => (current?.id === me.id ? current : me)))
+        .then(({ user: me }) => {
+          const nextUser = me ?? null;
+          setUser(current => (current?.id === nextUser?.id ? current : nextUser));
+        })
         .catch(() => setUser(null));
     };
 
@@ -130,9 +135,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient]);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await authApi.me();
+      setUser(res.user ?? null);
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isBootstrapping, login, logout }),
-    [user, isBootstrapping, login, logout]
+    () => ({ user, isBootstrapping, login, logout, refreshUser, setUser }),
+    [user, isBootstrapping, login, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

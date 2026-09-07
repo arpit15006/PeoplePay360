@@ -6,6 +6,7 @@ import { env } from '../config/env';
 import { UnauthorizedError, ValidationError } from '../utils/errors';
 import { SessionEnd } from '@prisma/client';
 import { AttendanceSessionService } from '../services/attendanceSession.service';
+import { UserService } from '../services/user.service';
 
 /**
  * POST /api/auth/login
@@ -98,6 +99,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         name: user.name,
         role: user.role,
         employeeId: user.employeeId,
+        mustChangePassword: user.mustChangePassword,
         employee: user.employee,
       },
     });
@@ -113,14 +115,23 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
  */
 export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user) {
+      res.json({
+        success: true,
+        user: null,
+      });
+      return;
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+      where: { id: req.user.id },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
         employeeId: true,
+        mustChangePassword: true,
         employee: {
           select: {
             id: true,
@@ -140,7 +151,12 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
     });
 
     if (!user) {
-      throw new UnauthorizedError('User not found');
+      res.clearCookie('token');
+      res.json({
+        success: true,
+        user: null,
+      });
+      return;
     }
 
     // Auto-link employee profile if user is an EMPLOYEE and not explicitly linked
@@ -200,3 +216,49 @@ export async function logout(req: Request, res: Response): Promise<void> {
   res.clearCookie('token');
   res.json({ success: true, message: 'Logged out successfully' });
 }
+
+/**
+ * POST /api/auth/change-password
+ * Allows an authenticated user to change their password and clear mustChangePassword flag.
+ * Requires: authenticate middleware
+ */
+export async function changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 8) {
+      throw new ValidationError('New password must be at least 8 characters long');
+    }
+
+    const updatedUser = await UserService.changePassword(req.user!.id, newPassword);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+      user: updatedUser,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/auth/forgot-password
+ * Public self-service endpoint to request a temporary password via email.
+ */
+export async function forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      throw new ValidationError('Email is required');
+    }
+
+    const result = await UserService.requestPasswordResetByEmail(email);
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+

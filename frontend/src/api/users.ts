@@ -9,4 +9,6 @@ export const usersApi = {
   update: (id: string, body: Partial<UserInput>) =>
     api.put<Env<ManagedUser>>(`/users/${id}`, body).then(r => r.data),
   remove: (id: string) => api.del<{ success: boolean }>(`/users/${id}`),
+  resetPassword: (id: string) =>
+    api.post<{ success: boolean; message: string; email?: string }>(`/users/${id}/reset-password`),
 }

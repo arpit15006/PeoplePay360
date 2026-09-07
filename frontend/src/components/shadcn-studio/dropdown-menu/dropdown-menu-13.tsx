@@ -1,6 +1,7 @@
 'use client'
 
-import { IconChevronDown } from '@tabler/icons-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { IconChevronDown, IconSearch, IconX } from '@tabler/icons-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -44,10 +45,27 @@ const DropdownMenuCheckboxFilter = ({
   'aria-label': ariaLabel,
   className
 }: Props) => {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const active = options.find(option => option.value === value)
 
+  useEffect(() => {
+    if (!open) {
+      setSearch('')
+    }
+  }, [open])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return options
+    const q = search.trim().toLowerCase()
+    return options.filter(
+      opt => opt.label.toLowerCase().includes(q) || opt.value.toLowerCase().includes(q)
+    )
+  }, [options, search])
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant='outline' className={className} aria-label={ariaLabel ?? label}>
           {triggerPrefix}
@@ -55,18 +73,55 @@ const DropdownMenuCheckboxFilter = ({
           <IconChevronDown className='text-muted-foreground' />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='max-h-72 w-56 overflow-y-auto'>
+      <DropdownMenuContent align='start' className='max-h-72 w-56 overflow-y-auto p-1'>
         <DropdownMenuLabel>{label}</DropdownMenuLabel>
+        <div className='px-1 pb-1.5 pt-0.5'>
+          <div className='flex items-center gap-1.5 rounded-md border px-2 py-1 bg-muted/40'>
+            <IconSearch className='size-3.5 text-muted-foreground shrink-0' />
+            <input
+              ref={searchInputRef}
+              type='text'
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.stopPropagation()}
+              placeholder={`Search ${label.toLowerCase()}...`}
+              className='w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground'
+            />
+            {search && (
+              <button
+                type='button'
+                onClick={() => {
+                  setSearch('')
+                  searchInputRef.current?.focus()
+                }}
+                className='text-muted-foreground hover:text-foreground shrink-0 cursor-pointer'
+              >
+                <IconX className='size-3' />
+              </button>
+            )}
+          </div>
+        </div>
         <DropdownMenuSeparator />
-        {options.map(option => (
-          <DropdownMenuCheckboxItem
-            key={option.value}
-            checked={option.value === value}
-            onCheckedChange={checked => checked && onValueChange(option.value)}
-          >
-            {option.label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        {filtered.length > 0 ? (
+          filtered.map(option => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={option.value === value}
+              onCheckedChange={checked => {
+                if (checked) {
+                  onValueChange(option.value)
+                  setOpen(false)
+                }
+              }}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))
+        ) : (
+          <div className='py-3 text-center text-xs text-muted-foreground'>
+            No options found
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

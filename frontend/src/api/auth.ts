@@ -15,5 +15,10 @@ export interface LoginResponse {
 export const authApi = {
   login: (payload: LoginPayload) => api.post<LoginResponse>('/auth/login', payload),
   logout: () => api.post<{ message: string }>('/auth/logout'),
-  me: () => api.get<{ user: AuthUser }>('/auth/me'),
+  me: () => api.get<{ user: AuthUser | null }>('/auth/me'),
+  changePassword: (payload: { newPassword: string }) =>
+    api.post<{ success: boolean; message: string; user: AuthUser }>('/auth/change-password', payload),
+  forgotPassword: (payload: { email: string }) =>
+    api.post<{ success: boolean; message: string }>('/auth/forgot-password', payload),
 };
+

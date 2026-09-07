@@ -7,6 +7,7 @@ export interface ManagedUser {
   name: string
   role: Role
   isActive: boolean
+  mustChangePassword?: boolean
   employeeId: string | null
   createdAt: string
   updatedAt: string

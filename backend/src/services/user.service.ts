@@ -1,10 +1,12 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
 import prisma from '../config/db';
-import { ConflictError, NotFoundError, ForbiddenError } from '../utils/errors';
+import { ConflictError, NotFoundError, ForbiddenError, ValidationError } from '../utils/errors';
 import { AuthUser } from '../middleware/auth';
 import { invalidateUserCache } from '../middleware/auth';
 import { Role } from '@prisma/client';
+import { EmailService } from './email.service';
 
 export interface CreateUserInput {
   email: string;
@@ -26,6 +28,7 @@ const PUBLIC_FIELDS = {
   name: true,
   role: true,
   isActive: true,
+  mustChangePassword: true,
   employeeId: true,
   createdAt: true,
   updatedAt: true,
@@ -33,6 +36,16 @@ const PUBLIC_FIELDS = {
     select: { id: true, name: true, employeeCode: true, jobPosition: true },
   },
 } as const;
+
+function generateTemporaryPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let result = 'Temp@';
+  const bytes = crypto.randomBytes(8);
+  for (let i = 0; i < 8; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
 
 export class UserService {
   static async listUsers(filters: { role?: string; q?: string }) {
@@ -162,4 +175,101 @@ export class UserService {
 
     return { id };
   }
+
+  /**
+   * Reset a user's password to a secure temporary password and email it to them.
+   * Admin users are strictly blocked from being reset.
+   */
+  static async resetPassword(userId: string, _actor?: AuthUser) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError('User');
+
+    if (user.role === Role.ADMIN) {
+      throw new ForbiddenError('Password reset is not permitted for Admin accounts.');
+    }
+
+    const tempPassword = generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: true,
+      },
+    });
+
+    invalidateUserCache(user.id);
+
+    await EmailService.sendPasswordResetEmail(user.email, user.name, tempPassword);
+
+    return {
+      message: `Temporary password sent to ${user.email}`,
+      email: user.email,
+    };
+  }
+
+  /**
+   * Public / self-service password reset request by email.
+   * Generates a temporary password and emails it. Admin accounts are rejected.
+   */
+  static async requestPasswordResetByEmail(email: string) {
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+
+    if (!user) {
+      throw new NotFoundError('No account found associated with this email address.');
+    }
+
+    if (user.role === Role.ADMIN) {
+      throw new ForbiddenError('Password reset is not permitted for Admin accounts. Please contact your system administrator.');
+    }
+
+    const tempPassword = generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: true,
+      },
+    });
+
+    invalidateUserCache(user.id);
+
+    await EmailService.sendPasswordResetEmail(user.email, user.name, tempPassword);
+
+    return {
+      message: `A temporary password has been sent to ${user.email}. Please check your inbox.`,
+    };
+  }
+
+  /**
+   * Set a new permanent password for the authenticated user and clears the mustChangePassword flag.
+   */
+  static async changePassword(userId: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new ValidationError('Password must be at least 8 characters long.');
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError('User');
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: false,
+      },
+      select: PUBLIC_FIELDS,
+    });
+
+    invalidateUserCache(userId);
+
+    return updated;
+  }
 }
+

@@ -348,7 +348,7 @@ export function WorkSessionCard({ className }: { className?: string }) {
                   <Separator />
                   <div>
                     <p className='mb-1 text-sm font-medium'>Today&apos;s timeline</p>
-                    <ScrollArea className='h-44 pr-3'>
+                    <ScrollArea className='max-h-48 pr-3'>
                       <div className='divide-y'>
                         {state.segments.map(segment => (
                           <SegmentRow key={segment.id} segment={segment} />

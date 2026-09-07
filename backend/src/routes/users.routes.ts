@@ -10,6 +10,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  resetUserPassword,
 } from '../controllers/users.controller';
 
 const router = Router();
@@ -27,5 +28,8 @@ router.post('/', createUser);
 router.post('/bulk-import', importUsers);
 router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
+
+// POST /api/users/:id/reset-password — Reset user password to a temporary password & email it
+router.post('/:id/reset-password', resetUserPassword);
 
 export default router;

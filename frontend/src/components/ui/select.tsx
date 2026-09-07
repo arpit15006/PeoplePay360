@@ -1,7 +1,32 @@
 import * as React from "react"
 import { cn } from "cn"
 import { Select as SelectPrimitive } from "radix-ui"
-import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
+import { ChevronDownIcon, CheckIcon, ChevronUpIcon, SearchIcon, XIcon } from "lucide-react"
+
+interface SelectSearchContextValue {
+  search: string
+  searchable: boolean
+  registerItem: (id: string, matches: boolean) => void
+  unregisterItem: (id: string) => void
+}
+
+const SelectSearchContext = React.createContext<SelectSearchContextValue>({
+  search: '',
+  searchable: true,
+  registerItem: () => {},
+  unregisterItem: () => {},
+})
+
+function extractText(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join(' ')
+  if (React.isValidElement(node)) {
+    const props = node.props as { children?: React.ReactNode }
+    return extractText(props.children)
+  }
+  return ''
+}
 
 function Select({
   ...props
@@ -57,33 +82,136 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
-  position = "item-aligned",
-  align = "center",
+  position = "popper",
+  align = "start",
+  searchable = true,
+  searchPlaceholder = "Search...",
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+}: React.ComponentProps<typeof SelectPrimitive.Content> & {
+  searchable?: boolean
+  searchPlaceholder?: string
+}) {
+  const [search, setSearch] = React.useState('')
+  const [matchedIds, setMatchedIds] = React.useState<Record<string, boolean>>({})
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
+
+  const registerItem = React.useCallback((id: string, matches: boolean) => {
+    setMatchedIds(prev => {
+      if (prev[id] === matches) return prev
+      return { ...prev, [id]: matches }
+    })
+  }, [])
+
+  const unregisterItem = React.useCallback((id: string) => {
+    setMatchedIds(prev => {
+      if (!(id in prev)) return prev
+      const copy = { ...prev }
+      delete copy[id]
+      return copy
+    })
+  }, [])
+
+  const searchContextValue = React.useMemo(() => ({
+    search,
+    searchable,
+    registerItem,
+    unregisterItem,
+  }), [search, searchable, registerItem, unregisterItem])
+
+  const totalRegistered = Object.keys(matchedIds).length
+  const totalMatched = Object.values(matchedIds).filter(Boolean).length
+  const hasNoMatches = searchable && search.trim().length > 0 && totalRegistered > 0 && totalMatched === 0
+
+  React.useEffect(() => {
+    if (searchable) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus()
+      }, 10)
+      return () => clearTimeout(timer)
+    }
+  }, [searchable])
+
   return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        data-slot="select-content"
-        data-align-trigger={position === "item-aligned"}
-        className={cn("relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", position ==="popper"&&"data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1", className )}
-        position={position}
-        align={align}
-        {...props}
-      >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport
-          data-position={position}
+    <SelectSearchContext.Provider value={searchContextValue}>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          data-slot="select-content"
+          data-align-trigger={position === "item-aligned"}
           className={cn(
-            "data-[position=popper]:h-(--radix-select-trigger-height) data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
-            position === "popper" && ""
+            "relative z-50 max-h-(--radix-select-content-available-height) min-w-44 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+            className
           )}
+          position={position}
+          align={align}
+          {...props}
         >
-          {children}
-        </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
-      </SelectPrimitive.Content>
-    </SelectPrimitive.Portal>
+          {searchable && (
+            <div className="sticky top-0 z-20 flex items-center gap-2 border-b bg-popover px-2.5 py-1.5 shadow-xs">
+              <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <input
+                ref={searchInputRef}
+                autoFocus
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Escape') {
+                    return
+                  }
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    const container = e.currentTarget.closest('[data-slot="select-content"]')
+                    const firstItem = container?.querySelector<HTMLElement>(
+                      '[data-slot="select-item"]:not(.hidden):not([data-disabled])'
+                    )
+                    firstItem?.focus()
+                  }
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                placeholder={searchPlaceholder}
+                className="w-full bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {search && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => {
+                    setSearch('')
+                    searchInputRef.current?.focus()
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer p-0.5 rounded-sm"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          <SelectScrollUpButton />
+          <SelectPrimitive.Viewport
+            data-position={position}
+            className={cn(
+              "data-[position=popper]:h-(--radix-select-trigger-height) data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
+              position === "popper" && ""
+            )}
+          >
+            {children}
+            {hasNoMatches && (
+              <div className="py-4 text-center text-xs text-muted-foreground">
+                No options found
+              </div>
+            )}
+          </SelectPrimitive.Viewport>
+          <SelectScrollDownButton />
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectSearchContext.Provider>
   )
 }
 
@@ -103,20 +231,47 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  value,
+  disabled,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
+  const { search, searchable, registerItem, unregisterItem } = React.useContext(SelectSearchContext)
+
+  const textContent = React.useMemo(() => {
+    return extractText(children) || String(value ?? '')
+  }, [children, value])
+
+  const matches = React.useMemo(() => {
+    if (!searchable || !search.trim()) return true
+    const q = search.trim().toLowerCase()
+    return (
+      textContent.toLowerCase().includes(q) ||
+      String(value ?? '').toLowerCase().includes(q)
+    )
+  }, [searchable, search, textContent, value])
+
+  React.useEffect(() => {
+    if (searchable && registerItem) {
+      registerItem(value, matches)
+      return () => unregisterItem(value)
+    }
+  }, [searchable, registerItem, unregisterItem, value, matches])
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      disabled={disabled || !matches}
       className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        !matches && "hidden",
         className
       )}
+      value={value}
       {...props}
     >
       <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="pointer-events-none" />
+          <CheckIcon className="pointer-events-none size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -150,8 +305,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <ChevronUpIcon
-      />
+      <ChevronUpIcon />
     </SelectPrimitive.ScrollUpButton>
   )
 }
@@ -169,8 +323,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <ChevronDownIcon
-      />
+      <ChevronDownIcon />
     </SelectPrimitive.ScrollDownButton>
   )
 }

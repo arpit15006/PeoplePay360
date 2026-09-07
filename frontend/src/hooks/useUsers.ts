@@ -26,3 +26,9 @@ export function useDeleteUser() {
   const invalidate = useInvalidate()
   return useMutation({ mutationFn: (id: string) => usersApi.remove(id), onSuccess: invalidate })
 }
+
+export function useResetUserPassword() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (id: string) => usersApi.resetPassword(id), onSuccess: invalidate })
+}
+

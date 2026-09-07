@@ -142,3 +142,46 @@ export async function authenticate(
     }
   }
 }
+
+/**
+ * Optional authentication middleware.
+ * If a token is provided and valid, attaches user to req.user.
+ * If no token or token is invalid/expired, continues without throwing (req.user remains undefined).
+ */
+export async function optionalAuthenticate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    let token: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) {
+      return next();
+    }
+
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+      const user = await loadUser(decoded.userId);
+      if (user) {
+        req.user = user;
+      } else {
+        res.clearCookie('token');
+      }
+    } catch {
+      res.clearCookie('token');
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+

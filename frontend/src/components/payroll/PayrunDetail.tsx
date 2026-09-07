@@ -22,7 +22,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import {
   DataTablePagination,
   DataTablePaginationBase
@@ -107,12 +109,31 @@ export function PayrunDetail() {
   const [sendStarted, setSendStarted] = useState(false)
   const [sendResult, setSendResult] = useState<SendProgressResult | undefined>()
   const [sendError, setSendError] = useState<string | undefined>()
+  const [warningsOpen, setWarningsOpen] = useState(false)
 
   // The recipient list is one row per employee, so a full payrun fills it with
   // hundreds. Paging it keeps the dialog a fixed height; `recipients` holds ids
   // rather than rows, so a tick survives turning the page.
   const sendableSlips = useMemo(() => payrun?.payslips ?? [], [payrun])
   const recipientPages = useClientPagination(sendableSlips, 10)
+
+  /**
+   * The subset of errors that actually stop an email going out, narrowed to the
+   * employees currently ticked. Missing bank details stop someone being *paid*
+   * and belong on the page above, but they do not stop a PDF being emailed, so
+   * they are not counted here. The server applies the same rule.
+   */
+  const sendBlockers = useMemo(() => {
+    const chosen = new Set(
+      sendableSlips.filter(p => recipients.includes(p.id)).map(p => p.employeeId)
+    )
+    return warnings.filter(
+      w =>
+        SEND_BLOCKING_CODES.includes(w.code) &&
+        w.severity === 'error' &&
+        (!w.employeeId || chosen.has(w.employeeId))
+    )
+  }, [warnings, sendableSlips, recipients])
 
   const canProcess = !!user && CAN_PROCESS.includes(user.role)
   const canSend = !!user && CAN_SEND.includes(user.role)
@@ -256,23 +277,6 @@ export function PayrunDetail() {
   }
 
   const stage = PAYRUN_FLOW.indexOf(payrun.status)
-  /**
-   * The subset of errors that actually stop an email going out, narrowed to the
-   * employees currently ticked. Missing bank details stop someone being *paid*
-   * and belong on the page above, but they do not stop a PDF being emailed, so
-   * they are not counted here. The server applies the same rule.
-   */
-  const sendBlockers = useMemo(() => {
-    const chosen = new Set(
-      sendableSlips.filter(p => recipients.includes(p.id)).map(p => p.employeeId)
-    )
-    return warnings.filter(
-      w =>
-        SEND_BLOCKING_CODES.includes(w.code) &&
-        w.severity === 'error' &&
-        (!w.employeeId || chosen.has(w.employeeId))
-    )
-  }, [warnings, sendableSlips, recipients])
 
   const run = async (
     act: 'compute' | 'validate' | 'markPaid',
@@ -411,18 +415,68 @@ export function PayrunDetail() {
 
       {/* Warnings before finalisation */}
       {warnings.length > 0 ? (
-        <div className='space-y-2'>
-          {warnings.map((warning, index) => (
-            <Alert
-              key={`${warning.code}-${index}`}
-              variant={warning.severity === 'error' ? 'destructive' : 'default'}
-              className={warning.severity === 'error' ? 'border-destructive *:[svg]:row-span-1' : '*:[svg]:row-span-1'}
+        <Collapsible
+          open={warningsOpen}
+          onOpenChange={setWarningsOpen}
+          className={cn(
+            'overflow-hidden rounded-lg border text-sm transition-all shadow-xs',
+            warnings.some(w => w.severity === 'error')
+              ? 'border-destructive/40 bg-destructive/5'
+              : 'border-amber-500/30 bg-amber-500/5'
+          )}
+        >
+          <CollapsibleTrigger asChild>
+            <button
+              type='button'
+              className='flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 select-none'
             >
-              <IconAlertTriangle />
-              <AlertTitle>{warning.message}</AlertTitle>
-            </Alert>
-          ))}
-        </div>
+              <div className='flex items-center gap-3 min-w-0'>
+                <IconAlertTriangle
+                  className={cn(
+                    'size-4 shrink-0',
+                    warnings.some(w => w.severity === 'error') ? 'text-destructive' : 'text-amber-500'
+                  )}
+                />
+                <span className='font-medium truncate'>
+                  {warnings.length} {warnings.length === 1 ? 'issue' : 'issues'} found before finalisation
+                </span>
+                <Badge
+                  variant={warnings.some(w => w.severity === 'error') ? 'destructive' : 'secondary'}
+                  className='text-xs font-mono shrink-0'
+                >
+                  {warnings.length}
+                </Badge>
+              </div>
+              <div className='flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 ml-2'>
+                <span>{warningsOpen ? 'Hide' : 'View details'}</span>
+                <IconChevronDown
+                  className={cn(
+                    'size-4 transition-transform duration-200',
+                    warningsOpen && 'rotate-180'
+                  )}
+                />
+              </div>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className='border-t border-border/40 divide-y divide-border/30 max-h-60 overflow-y-auto bg-background/50'>
+              {warnings.map((warning, index) => (
+                <div
+                  key={`${warning.code}-${index}`}
+                  className='flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/20'
+                >
+                  <IconAlertTriangle
+                    className={cn(
+                      'size-4 shrink-0',
+                      warning.severity === 'error' ? 'text-destructive' : 'text-amber-500'
+                    )}
+                  />
+                  <span className='text-foreground/90'>{warning.message}</span>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       ) : (
         payrun.payslips.length > 0 && (
           <Alert className='*:[svg]:row-span-1'>

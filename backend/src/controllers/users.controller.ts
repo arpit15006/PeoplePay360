@@ -50,3 +50,13 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
     next(err);
   }
 }
+
+export async function resetUserPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await UserService.resetPassword(req.params.id, req.user!);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+

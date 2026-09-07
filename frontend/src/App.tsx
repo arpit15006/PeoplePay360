@@ -24,6 +24,7 @@ import DepartmentsList from './components/departments/DepartmentsList';
 import ComingSoonPlaceholder from './components/common/ComingSoonPlaceholder';
 import LoginView from './components/auth/LoginView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import StrictPasswordResetModal from './components/auth/StrictPasswordResetModal';
 import { useAuth } from './context/AuthContext';
 import { roleLandingPath } from './types/user';
 import type { Role } from './types/user';
@@ -55,9 +56,11 @@ function RootLandingRedirect() {
 
 export default function App() {
   return (
-    <Routes>
-      {/* Screen 1 — full-screen standalone login, outside the app shell */}
-      <Route path="/login" element={<LoginView />} />
+    <>
+      <StrictPasswordResetModal />
+      <Routes>
+        {/* Screen 1 — full-screen standalone login, outside the app shell */}
+        <Route path="/login" element={<LoginView />} />
 
       {/* Authenticated application */}
       <Route
@@ -257,5 +260,6 @@ export default function App() {
         }
       />
     </Routes>
+    </>
   );
 }

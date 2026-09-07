@@ -24,6 +24,7 @@ export interface AuthUser {
   name: string;
   role: Role;
   employeeId: string | null;
+  mustChangePassword?: boolean;
   employee?: AuthEmployee | null;
 }
 

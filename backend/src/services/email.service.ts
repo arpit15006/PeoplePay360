@@ -407,7 +407,151 @@ function buildPayslipEmailHtml(
 </html>`;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Professional Password Reset Email Template                         */
+/* ------------------------------------------------------------------ */
+function buildPasswordResetEmailHtml(userName: string, tempPassword: string): string {
+  const currentYear = new Date().getFullYear();
+  const loginUrl = `${env.FRONTEND_URL}/login`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temporary Password — PeoplePay360</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    table { border-collapse: separate; border-spacing: 0; }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 36px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);">
+          <!-- Brand Accent -->
+          <tr>
+            <td style="height: 5px; background: linear-gradient(90deg, #144f84 0%, #2563eb 55%, #0ea5e9 100%); font-size: 5px; line-height: 5px;">&nbsp;</td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 26px 36px 18px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td valign="middle">
+                    <span style="font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">
+                      PeoplePay<span style="color: #144f84;">360</span>
+                    </span>
+                    <div style="font-size: 11px; font-weight: 500; color: #64748b; margin-top: 2px;">
+                      Identity &amp; Access Management
+                    </div>
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 9999px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #1d4ed8;">
+                      PASSWORD RESET
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding: 0 36px;">
+              <div style="height: 1px; background-color: #f1f5f9; width: 100%;"></div>
+            </td>
+          </tr>
+
+          <!-- Message -->
+          <tr>
+            <td style="padding: 24px 36px 14px;">
+              <p style="color: #0f172a; font-size: 16px; font-weight: 700; margin: 0 0 8px;">
+                Hello ${userName},
+              </p>
+              <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
+                A temporary password has been issued for your PeoplePay360 account. Please use the credentials below to sign in:
+              </p>
+
+              <!-- Temp Password Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; margin-bottom: 20px;">
+                <tr>
+                  <td style="padding: 16px 20px; text-align: center;">
+                    <div style="color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                      Your Temporary Password
+                    </div>
+                    <div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: 2px; padding: 6px 0;">
+                      ${tempPassword}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Notice Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 12px 16px;">
+                    <p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.5; font-weight: 500;">
+                      <strong>Mandatory Security Action:</strong> When you log in with this temporary password, a security modal will prompt you to set a new permanent password immediately before accessing the platform.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 24px 0 16px;">
+                <a href="${loginUrl}" style="background-color: #144f84; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">
+                  Sign In to PeoplePay360 →
+                </a>
+              </div>
+
+              <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 18px 0 0;">
+                If you did not request this password reset or believe this was done in error, please alert your HR administrator immediately.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 36px 24px; text-align: center; background-color: #f8fafc; border-top: 1px solid #f1f5f9;">
+              <p style="color: #94a3b8; font-size: 11px; margin: 0;">
+                © ${currentYear} PeoplePay360 Cloud HRMS • Automated Security Notification
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 export class EmailService {
+  /**
+   * Send a temporary password reset email to an employee or non-admin user.
+   */
+  static async sendPasswordResetEmail(toEmail: string, userName: string, tempPassword: string) {
+    const transport = await getTransporter();
+    const htmlContent = buildPasswordResetEmailHtml(userName, tempPassword);
+
+    const info = await transport.sendMail({
+      from: `"PeoplePay360 Security" <${env.SMTP_FROM}>`,
+      to: toEmail,
+      subject: `Your Temporary Password for PeoplePay360`,
+      html: htmlContent,
+    });
+
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`[Email Service] Password reset preview URL for ${toEmail}: ${previewUrl}`);
+    }
+
+    return { messageId: info.messageId, previewUrl };
+  }
+
   /**
    * Send a single payslip email with PDF attachment to an employee.
    */

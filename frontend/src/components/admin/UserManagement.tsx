@@ -58,6 +58,7 @@ import {
   IconChevronUp,
   IconCrown,
   IconDotsVertical,
+  IconKey,
   IconPencil,
   IconPlus,
   IconUpload,
@@ -75,7 +76,7 @@ import {
   DataTableFacetFilter,
   DataTablePagination
 } from '@/components/shadcn-studio/data-table/data-table-parts'
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers'
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useResetUserPassword } from '@/hooks/useUsers'
 import { useEmployees } from '@/hooks/useEmployees'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
@@ -122,12 +123,14 @@ export function UserManagement() {
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
+  const resetUserPassword = useResetUserPassword()
 
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<ManagedUser | null>(null)
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState<UserInput>(EMPTY)
   const [confirmDelete, setConfirmDelete] = useState<ManagedUser | null>(null)
+  const [confirmReset, setConfirmReset] = useState<ManagedUser | null>(null)
 
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -334,6 +337,23 @@ export function UserManagement() {
                   </TooltipContent>
                 </Tooltip>
               )}
+              {u.role !== 'ADMIN' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      aria-label={`Reset password for ${u.name}`}
+                      onClick={() => setConfirmReset(u)}
+                    >
+                      <IconKey className='size-4.5 text-amber-600 dark:text-amber-400' />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Reset password</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size='icon' variant='ghost' aria-label={`More actions for ${u.name}`}>
@@ -345,6 +365,11 @@ export function UserManagement() {
                     <DropdownMenuItem onSelect={() => openEdit(u)}>
                       <span>Edit access</span>
                     </DropdownMenuItem>
+                    {u.role !== 'ADMIN' && (
+                      <DropdownMenuItem onSelect={() => setConfirmReset(u)}>
+                        <span>Reset password</span>
+                      </DropdownMenuItem>
+                    )}
                     {!isSelf && (
                       <DropdownMenuItem onSelect={() => toggleActive(u)}>
                         <span>{u.isActive ? 'Deactivate' : 'Reactivate'}</span>
@@ -622,6 +647,44 @@ export function UserManagement() {
             </Button>
             <Button variant='destructive' onClick={remove} disabled={deleteUser.isPending}>
               {deleteUser.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password confirmation */}
+      <Dialog open={!!confirmReset} onOpenChange={open => !open && setConfirmReset(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset User Password</DialogTitle>
+            <DialogDescription className="space-y-2 pt-1 text-sm">
+              <span>
+                A secure temporary password will be automatically generated and emailed to{' '}
+                <strong className="text-foreground">{confirmReset?.email}</strong>.
+              </span>
+              <span className="block text-muted-foreground text-xs">
+                When {confirmReset?.name} signs in with the temporary password, they will be strictly prompted to create a new password before accessing the system.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setConfirmReset(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!confirmReset) return
+                try {
+                  await resetUserPassword.mutateAsync(confirmReset.id)
+                  toast.success(`Temporary password sent to ${confirmReset.email}`)
+                  setConfirmReset(null)
+                } catch (err) {
+                  toast.error(errorText(err))
+                }
+              }}
+              disabled={resetUserPassword.isPending}
+            >
+              {resetUserPassword.isPending ? 'Sending…' : 'Send Temporary Password'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 
 import { Progress } from '@/components/ui/progress'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { IconAlertTriangle, IconCircleCheck, IconMail } from '@tabler/icons-react'
+import { cn } from '@/lib/utils'
 
 import { socket } from '@/socket'
 
@@ -68,6 +68,8 @@ export function PayslipSendProgress({
   const settled = result ? result.sent + result.failed : done
   const value = finished ? 100 : total > 0 ? Math.min(99, (settled / total) * 100) : 0
   const failures = result ? result.failed : failed
+  const isSuccess = Boolean(result && failures === 0)
+  const isFailed = Boolean(error || failures > 0)
 
   const heading = error
     ? 'Sending failed'
@@ -82,51 +84,70 @@ export function PayslipSendProgress({
     : result
       ? 'Each employee has been emailed their payslip as a PDF.'
       : current
-        ? `Last completed: ${current}`
-        : 'Building PDFs and emailing each employee.'
+        ? `Sending to ${current}…`
+        : 'Building PDFs and emailing each employee…'
 
   return (
-    <div className='bg-card w-full rounded-xl border p-4 shadow-sm'>
-      <Field>
-        <div className='mb-4 flex items-center gap-4 max-sm:flex-wrap max-sm:gap-2'>
-          <div
-            className={`flex size-10 shrink-0 items-center justify-center rounded-lg max-sm:size-8 ${
-              error || failures > 0
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-primary/10 text-primary'
-            }`}
-          >
-            {error || failures > 0 ? (
-              <IconAlertTriangle className='size-5 max-sm:size-4' />
-            ) : result ? (
-              <IconCircleCheck className='size-5 max-sm:size-4' />
-            ) : (
-              <IconMail className='size-5 max-sm:size-4' />
-            )}
-          </div>
-
-          <div className='min-w-0 flex-1'>
-            <FieldLabel
-              htmlFor='payslip-send-progress'
-              className='m-0 mb-1 text-sm font-medium max-sm:text-xs'
-            >
-              {heading}
-            </FieldLabel>
-            <p className='text-muted-foreground truncate text-sm max-sm:text-xs'>{detail}</p>
-          </div>
-
-          <div className='flex flex-col items-end max-sm:items-start'>
-            <div className='text-sm font-medium tabular-nums max-sm:text-xs'>
-              {Math.round(value)}%
-            </div>
-            <div className='text-muted-foreground text-sm font-medium tabular-nums max-sm:text-xs'>
-              {settled} / {total}
-            </div>
-          </div>
+    <div className='bg-card w-full rounded-xl border p-5 shadow-xs space-y-4'>
+      <div className='flex items-center gap-3.5 max-sm:flex-wrap max-sm:gap-2'>
+        <div
+          className={cn(
+            'flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors max-sm:size-8',
+            isFailed
+              ? 'bg-destructive/10 text-destructive'
+              : isSuccess
+                ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
+                : 'bg-primary/10 text-primary animate-pulse'
+          )}
+        >
+          {isFailed ? (
+            <IconAlertTriangle className='size-5 max-sm:size-4' />
+          ) : isSuccess ? (
+            <IconCircleCheck className='size-5 max-sm:size-4' />
+          ) : (
+            <IconMail className='size-5 max-sm:size-4' />
+          )}
         </div>
 
-        <Progress value={value} id='payslip-send-progress' className='h-1.5' />
-      </Field>
+        <div className='min-w-0 flex-1'>
+          <h4 className='m-0 text-sm font-semibold leading-tight text-foreground'>
+            {heading}
+          </h4>
+          <p className='text-muted-foreground truncate text-xs mt-1'>{detail}</p>
+        </div>
+
+        <div className='flex flex-col items-end shrink-0 pl-2'>
+          <span
+            className={cn(
+              'text-sm font-bold tabular-nums',
+              isFailed
+                ? 'text-destructive'
+                : isSuccess
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-foreground'
+            )}
+          >
+            {Math.round(value)}%
+          </span>
+          <span className='text-muted-foreground text-xs font-medium tabular-nums'>
+            {settled} / {total}
+          </span>
+        </div>
+      </div>
+
+      <Progress
+        value={value}
+        id='payslip-send-progress'
+        className='h-2 w-full bg-muted/80 rounded-full'
+        indicatorClassName={cn(
+          'transition-all duration-300 ease-in-out',
+          isFailed
+            ? 'bg-destructive'
+            : isSuccess
+              ? 'bg-emerald-500 dark:bg-emerald-400'
+              : 'bg-primary'
+        )}
+      />
     </div>
   )
 }
