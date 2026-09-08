@@ -67,28 +67,13 @@ export function EmployeesDashboard() {
     user?.employeeId ||
     employees.find(e => e.email?.toLowerCase() === user?.email?.toLowerCase())?.id
 
-  if (user?.role === 'EMPLOYEE') {
-    if (myEmployeeId) {
-      return <Navigate to={`/employees/${myEmployeeId}`} replace />
-    }
-    if (isLoading) {
-      return (
-        <div className='space-y-4 p-6'>
-          <Skeleton className='h-12 w-1/3' />
-          <Skeleton className='h-64 w-full' />
-        </div>
-      )
-    }
-    return (
-      <div className='p-6 text-sm text-muted-foreground'>
-        No employee profile is associated with your account. Please contact your HR administrator.
-      </div>
-    )
-  }
-
   // Arriving from a department's "View employees" carries the department id.
   // The id is what travels, because it survives a rename, but the row filter
   // matches on the department's name, so it is resolved once the list loads.
+  //
+  // Above the Employee redirect below: `user` is null on the first render and
+  // only then resolves to a role, so a hook placed after that branch would run
+  // on the first pass and vanish on the second.
   const departmentIdParam = searchParams.get('departmentId')
   useEffect(() => {
     if (!departmentIdParam) return
@@ -143,6 +128,30 @@ export function EmployeesDashboard() {
         : a.name.localeCompare(b.name)
     )
   }, [scoped, search, department, status, sort])
+
+  // Below every hook above, and deliberately so. `user` is null on the first
+  // render and only then resolves to a role, so this branch is not taken on the
+  // way in and is taken on the way out — which, with hooks underneath it, would
+  // change the hook count between two renders of the same mount and blank the
+  // page.
+  if (user?.role === 'EMPLOYEE') {
+    if (myEmployeeId) {
+      return <Navigate to={`/employees/${myEmployeeId}`} replace />
+    }
+    if (isLoading) {
+      return (
+        <div className='space-y-4 p-6'>
+          <Skeleton className='h-12 w-1/3' />
+          <Skeleton className='h-64 w-full' />
+        </div>
+      )
+    }
+    return (
+      <div className='p-6 text-sm text-muted-foreground'>
+        No employee profile is associated with your account. Please contact your HR administrator.
+      </div>
+    )
+  }
 
   const openEmployee = (employee: EmployeeRow) => navigate(`/employees/${employee.id}`)
 
